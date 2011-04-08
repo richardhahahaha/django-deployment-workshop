@@ -64,6 +64,11 @@ def setup():
     this -- consider, for example, what the various creation of directories,
     git repos, etc. will do if those things already exist. However, it's
     a useful example of a more complex Fabric operation.
+    
+    Dev setup:
+    sudo apt-get install build-essential python-dev python-setuptools python-pip ruby git-core
+    sudo pip install fabric
+    sudo gem install vagrant
     """
     # Initial setup and package install.
     sudo("mkdir -p /home/%(user)s/static" % env)
