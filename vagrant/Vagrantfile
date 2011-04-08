@@ -1,23 +1,26 @@
 Vagrant::Config.run do |config|
-    config.vm.define :web1 do |config|
+    config.vm.define :dev do |config|
       config.vm.box = "lucid32"
-      config.vm.network('33.33.33.10')
+      config.vm.forward_port("sshdev", 22, 4422)
+      config.vm.forward_port("webdev", 80, 4480)
       config.vm.customize do |vm|
           vm.memory_size = 256
       end
     end
 
-    config.vm.define :web2 do |config|
+    config.vm.define :stage do |config|
       config.vm.box = "lucid32"
-      config.vm.network('33.33.33.11')
+      config.vm.forward_port("sshstage", 22, 5522)
+      config.vm.forward_port("webstage", 80, 5580)
       config.vm.customize do |vm|
           vm.memory_size = 256
       end
     end
     
-    config.vm.define :db1 do |config|
+    config.vm.define :prod do |config|
       config.vm.box = "lucid32"
-      config.vm.network('33.33.33.20')
+      config.vm.forward_port("sshprod", 22, 6622)
+      config.vm.forward_port("webprod", 80, 6680)
       config.vm.customize do |vm|
           vm.memory_size = 256
       end

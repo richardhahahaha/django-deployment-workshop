@@ -7,19 +7,23 @@ provisioning example).
 """
 
 import contextlib
-from fabric.api import env, run, cd, sudo, put, require, settings, hide, puts
+from fabric.api import env, run, cd, sudo, put, require, settings, hide 
 from fabric.contrib import project, files
 
 # This is a bit more complicated than needed because I'm using Vagrant
 # for the examples.
-env.hosts = ['pycon-web2', 'pycon-web1']
-env.user = 'vagrant'
-env.key_filename = '/Library/Ruby/Gems/1.8/gems/vagrant-0.7.2/keys/vagrant'
+env.key_filename = '/usr/lib/ruby/gems/1.8/gems/vagrant-0.7.2/keys/vagrant.ppk'
 
-# Constants for where everything lives on the server.
-env.root = "/home/web/myblog"
+env.roledefs = {
+    'staging': ['vagrant@10.0.2.2:5522'],
+    'production': ['vagrant@10.0.2.2:6622']
+} 
+
+def _config():
+    env.root = "/home/%(user)s/myblog" % env
 
 def deploy():
+    _config()
     "Full deploy: push, buildout, and reload."
     push()
     update_dependencies()
@@ -37,7 +41,7 @@ def push():
         
 def update_dependencies():
     "Update Mingus' requirements remotely."
-    put("mingus-config/requirements.txt", "%s/requirements.txt", use_sudo=True)
+    put("mingus-config/requirements.txt", "%(root)s/requirements.txt" % env, use_sudo=True)
     sudo("%(root)s/bin/pip install -r %(root)s/requirements.txt" % env)
         
 def reload():
@@ -50,6 +54,7 @@ def reload():
 #
 
 def setup():
+    _config()
     """
     Set up (bootstrap) a new server.
     
@@ -60,7 +65,7 @@ def setup():
     a useful example of a more complex Fabric operation.
     """
     # Initial setup and package install.
-    sudo("mkdir -p /home/web/static")
+    sudo("mkdir -p /home/%(user)s/static" % env)
     sudo("aptitude update")
     sudo("aptitude -y install git-core python-dev python-setuptools "
                               "postgresql-dev postgresql-client build-essential "
@@ -69,20 +74,20 @@ def setup():
 
     # Create the virtualenv.
     sudo("easy_install virtualenv")
-    sudo("virtualenv /home/web/myblog")
-    sudo("/home/web/myblog/bin/pip install -U pip")
+    sudo("virtualenv /home/%(user)s/myblog" % env)
+    sudo("/home/%(user)s/myblog/bin/pip install -U pip" % env)
 
     # Check out Mingus
-    with cd("/home/web/myblog"):
+    with cd("/home/%(user)s/myblog" % env):
         sudo("git clone git://github.com/montylounge/django-mingus.git")
 
     # Set up Apache
-    with cd("/home/web/"):
+    with cd("/home/%(user)s/" % env):
         sudo("git clone git://github.com/jacobian/django-deployment-workshop.git")
     with cd("/etc/apache2"):
         sudo("rm -rf apache2.conf conf.d/ httpd.conf magic mods-* sites-* ports.conf")
-        sudo("ln -s /home/web/django-deployment-workshop/apache/apache2.conf .")
-        sudo("ln -s /home/web/django-deployment-workshop/mingus-config/mingus.wsgi /home/web/myblog/mingus.wsgi")
+        sudo("ln -s /home/%(user)s/django-deployment-workshop/apache/apache2.conf ." % env)
+        sudo("ln -s /home/%(user)s/django-deployment-workshop/mingus-config/mingus.wsgi /home/%(user)s/mingus.wsgi" % env)
         sudo("mkdir -m777 -p /var/www/.python-eggs")
         
     # Now do the normal deploy.
@@ -90,6 +95,7 @@ def setup():
 
 
 def run_chef():
+    _config()
     """
     Run Chef-solo on the remote server
     """
