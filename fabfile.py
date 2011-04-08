@@ -15,6 +15,7 @@ from fabric.contrib import project, files
 env.key_filename = '/usr/lib/ruby/gems/1.8/gems/vagrant-0.7.2/keys/vagrant.ppk'
 
 env.roledefs = {
+    'develop': ['vagrant@127.0.0.1:22'],
     'staging': ['vagrant@10.0.2.2:5522'],
     'production': ['vagrant@10.0.2.2:6622']
 } 
@@ -83,7 +84,7 @@ def setup():
 
     # Set up Apache
     with cd("/home/%(user)s/" % env):
-        sudo("git clone git://github.com/jacobian/django-deployment-workshop.git")
+        sudo("git clone git://github.com/fivethreeo/django-deployment-workshop.git")
     with cd("/etc/apache2"):
         sudo("rm -rf apache2.conf conf.d/ httpd.conf magic mods-* sites-* ports.conf")
         sudo("ln -s /home/%(user)s/django-deployment-workshop/apache/apache2.conf ." % env)

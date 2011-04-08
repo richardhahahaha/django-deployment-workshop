@@ -1,7 +1,6 @@
 package "git-core"
 package "python-dev"
 package "python-setuptools"
-package "postgresql-dev"
 package "postgresql-client"
 package "build-essential"
 package "libpq-dev"
