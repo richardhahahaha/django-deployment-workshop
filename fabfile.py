@@ -76,6 +76,8 @@ def setup():
     sudo("aptitude -y install git-core python-dev python-setuptools "
                               "postgresql-dev postgresql-client build-essential "
                               "libpq-dev subversion mercurial apache2 "
+                              "binutils libgdal1-1.5.0 libgeos-dev "
+                              "postgresql-8.4-postgis postgresql-server-dev-8.4 "
                               "libapache2-mod-wsgi")
 
     # Create the virtualenv.
