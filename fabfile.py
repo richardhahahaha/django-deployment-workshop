@@ -9,6 +9,10 @@ provisioning example).
 import contextlib
 from fabric.api import env, run, cd, sudo, put, require, settings, hide 
 from fabric.contrib import project, files
+import os
+from tempfile import NamedTemporaryFile
+
+env.project_name = 'myblog'
 
 # This is a bit more complicated than needed because I'm using Vagrant
 # for the examples.
@@ -20,9 +24,42 @@ env.roledefs = {
     'production': ['vagrant@10.0.2.2:6622']
 } 
 
-def _config():
-    env.root = "/home/%(user)s/myblog" % env
 
+def _new_user(username, group='users', password=False):
+
+    # Create the new admin user (default group=username); add to admin group
+    sudo('adduser {username} --disabled-password --gecos ""'.format(
+        username=username))
+    sudo('adduser {username} {group}'.format(
+        username=username,
+        group=group))
+        
+    if password:
+        # Set the password for the new admin user
+        sudo('echo "{username}:{password}" | chpasswd'.format(
+            username=admin_username,
+            password=admin_password))
+
+
+def _put_template(localpath, remotepath, templatevars, **kwargs):
+    template = open(localpath).read()
+    output = str(template) % templatevars
+    tmpfile = NamedTemporaryFile(delete=False)
+    tmpfile.write(output)
+    tmpfile.close()
+    put(tmpfile.name, remotepath, **kwargs)
+    os.unlink(tmpfile.name)
+    
+def _config():
+    env.root = "/home/%(user)s/%(project_name)s" % env
+    env.wsgipath = "/home/%(user)s/%(project_name)s.wsgi" % env
+    env.wsgi_user = env.user
+    env.wsgi_group = 'www-data'
+    env.apache_pid_file = '/var/run/apache.pid'
+    env.apache_run_user = 'apache'
+    env.apache_run_group = 'www-data'
+    env.servername = 'blog.com'
+    
 def deploy():
     _config()
     "Full deploy: push, buildout, and reload."
@@ -35,14 +72,14 @@ def push():
     with cd("%(root)s/django-mingus" % env):
         sudo("git pull")
         
-    put("mingus-config/local_settings.py",
-        "%(root)s/django-mingus/mingus/local_settings.py" % env,
+    _put_template("config/local_settings.py",
+        "%(root)s/django-mingus/mingus/local_settings.py" % env, env,
         use_sudo=True)
-    put("mingus-config/mingus.wsgi", "%(root)s/mingus.wsgi" % env, use_sudo=True)
+    _put_template("config/app.wsgi", "%(wsgipath)s" % env, env, use_sudo=True)
         
 def update_dependencies():
     "Update Mingus' requirements remotely."
-    put("mingus-config/requirements.txt", "%(root)s/requirements.txt" % env, use_sudo=True)
+    put("config/requirements.txt", "%(root)s/requirements.txt" % env, use_sudo=True)
     sudo("%(root)s/bin/pip install -r %(root)s/requirements.txt" % env)
         
 def reload():
@@ -54,7 +91,31 @@ def reload():
 # a server the simplistic way.
 #
 
-def setup():
+def setup_all():
+    setup_webserver()
+    setup_dbserver()
+    
+def setup_dbserver():
+    _config()
+    sudo("aptitude update")
+    sudo("aptitude -y install git-core  "
+                              "build-essential "
+                              "libpq-dev subversion mercurial apache2 "
+                              "binutils libgeos-dev "
+                              "postgresql-8.4-postgis postgresql-server-dev-8.4")
+    configure_dbserver()
+
+def configure_dbserver():
+    _config()                            
+    put("postgresql/pg_hba.conf",
+        "/etc/postgresql/pg_hba.conf" % env,
+        use_sudo=True)
+    put("postgresql/postgresql.conf",
+        "/etc/postgresql/postgresql.conf" % env,
+        use_sudo=True)
+    sudo("su postgres -c '/usr/lib/postgresql/8.4/bin/pg_ctl -D /var/lib/postgresql/8.4/main restart'")
+
+def setup_webserver():
     _config()
     """
     Set up (bootstrap) a new server.
@@ -71,36 +132,37 @@ def setup():
     sudo gem install vagrant
     """
     # Initial setup and package install.
-    sudo("mkdir -p /home/%(user)s/static" % env)
     sudo("aptitude update")
     sudo("aptitude -y install git-core python-dev python-setuptools "
                               "postgresql-dev postgresql-client build-essential "
                               "libpq-dev subversion mercurial apache2 "
-                              "binutils libgdal1-1.5.0 libgeos-dev "
-                              "postgresql-8.4-postgis postgresql-server-dev-8.4 "
+                              "binutils libgdal1-1.5.0 "
                               "libapache2-mod-wsgi")
 
+    with cd("/etc/apache2"):
+        sudo("rm -rf apache2.conf conf.d/ httpd.conf magic mods-* sites-* ports.conf")
+    _put_template("apache/apache2.conf", "/etc/apache2/apache2.conf", env, use_sudo=True)
+    sudo("mkdir -m777 -p /var/www/.python-eggs")
+    _new_user("apache", "www-data")
+    
+def setup_webapp():
+    _config()
     # Create the virtualenv.
     sudo("easy_install virtualenv")
-    sudo("virtualenv /home/%(user)s/myblog" % env)
+    sudo("virtualenv /home/%(user)s/%(project_name)s" % env)
     sudo("/home/%(user)s/myblog/bin/pip install -U pip" % env)
 
     # Check out Mingus
-    with cd("/home/%(user)s/myblog" % env):
+    with cd("/home/%(user)s/%(project_name)s" % env):
         sudo("git clone git://github.com/montylounge/django-mingus.git")
 
-    # Set up Apache
-    with cd("/home/%(user)s/" % env):
-        sudo("git clone git://github.com/fivethreeo/django-deployment-workshop.git")
-    with cd("/etc/apache2"):
-        sudo("rm -rf apache2.conf conf.d/ httpd.conf magic mods-* sites-* ports.conf")
-        sudo("ln -s /home/%(user)s/django-deployment-workshop/apache/apache2.conf ." % env)
-        sudo("ln -s /home/%(user)s/django-deployment-workshop/mingus-config/mingus.wsgi /home/%(user)s/mingus.wsgi" % env)
-        sudo("mkdir -m777 -p /var/www/.python-eggs")
-        
-    # Now do the normal deploy.
-    deploy()
+    sudo("mkdir -p /home/%(user)s/static" % env)
+    sudo("mkdir -p /etc/apache2/sites-enabled" % env)
+    
+    _put_template("apache/site.conf", "/etc/apache2/sites-enabled/%(project_name)s.conf" % env, env, use_sudo=True)
 
+    # Now do the normal deploy.
+    deploy()    
 
 def run_chef():
     _config()
