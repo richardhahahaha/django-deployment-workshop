@@ -55,11 +55,13 @@ def _config():
     env.wsgipath = "/home/%(user)s/%(project_name)s.wsgi" % env
     env.wsgi_user = env.user
     env.wsgi_group = 'www-data'
-    env.apache_pid_file = '/var/run/apache.pid'
-    env.apache_run_user = 'apache'
+    env.apache_pid_file = '/var/run/apache2.pid'
+    env.apache_run_user = 'www-data'
     env.apache_run_group = 'www-data'
     env.servername = 'blog.com'
     
+    
+ 
 def deploy():
     _config()
     "Full deploy: push, buildout, and reload."
@@ -94,6 +96,8 @@ def reload():
 def setup_all():
     setup_webserver()
     setup_dbserver()
+    add_site()
+    add_superuser()
     
 def setup_dbserver():
     _config()
@@ -103,17 +107,16 @@ def setup_dbserver():
                               "libpq-dev subversion mercurial apache2 "
                               "binutils libgeos-dev "
                               "postgresql-8.4-postgis postgresql-server-dev-8.4")
-    configure_dbserver()
-
-def configure_dbserver():
-    _config()                            
     put("postgresql/pg_hba.conf",
-        "/etc/postgresql/pg_hba.conf" % env,
+        "/etc/postgresql/8.4/main/pg_hba.conf" % env,
         use_sudo=True)
     put("postgresql/postgresql.conf",
-        "/etc/postgresql/postgresql.conf" % env,
+        "/etc/postgresql/8.4/main/postgresql.conf" % env,
         use_sudo=True)
-    sudo("su postgres -c '/usr/lib/postgresql/8.4/bin/pg_ctl -D /var/lib/postgresql/8.4/main restart'")
+    sudo("chown -R postgres:postgres /etc/postgresql/8.4/main")    
+    sudo("invoke-rc.d postgresql-8.4 restart")
+    
+    configure_db()
 
 def setup_webserver():
     _config()
@@ -143,36 +146,58 @@ def setup_webserver():
         sudo("rm -rf apache2.conf conf.d/ httpd.conf magic mods-* sites-* ports.conf")
     _put_template("apache/apache2.conf", "/etc/apache2/apache2.conf", env, use_sudo=True)
     sudo("mkdir -m777 -p /var/www/.python-eggs")
-    _new_user("apache", "www-data")
+    setup_webapp()
     
 def setup_webapp():
     _config()
     # Create the virtualenv.
     sudo("easy_install virtualenv")
-    sudo("virtualenv /home/%(user)s/%(project_name)s" % env)
-    sudo("/home/%(user)s/myblog/bin/pip install -U pip" % env)
+    run("virtualenv /home/%(user)s/%(project_name)s" % env)
+    run("/home/%(user)s/%(project_name)s/bin/pip install -U pip" % env)
 
     # Check out Mingus
     with cd("/home/%(user)s/%(project_name)s" % env):
-        sudo("git clone git://github.com/montylounge/django-mingus.git")
+        run("git clone git://github.com/montylounge/django-mingus.git")
 
-    sudo("mkdir -p /home/%(user)s/static" % env)
+    run("mkdir -p /home/%(user)s/static" % env)
     sudo("mkdir -p /etc/apache2/sites-enabled" % env)
     
     _put_template("apache/site.conf", "/etc/apache2/sites-enabled/%(project_name)s.conf" % env, env, use_sudo=True)
-
+    run('ln -s /home/%(user)s/%(project_name)s/django-mingus/mingus/media/mingus /home/%(user)s/static/mingus' % env)
+    run('ln -s /home/%(user)s/%(project_name)s/lib/python2.6/site-packages/django/contrib/admin/media /home/%(user)s/static/admin_media' % env)
     # Now do the normal deploy.
-    deploy()    
+    deploy()
+    
+    
+def add_db(dbname, owner, template=''):
+    if template:
+        template = ' TEMPLATE %s'
+    sudo('psql -c "CREATE DATABASE %s %s ENCODING \'unicode\' OWNER %s" -d postgres -U postgres' % (dbname, template, owner))
+    
+def configure_db():
+    _config()                            
+    add_dbuser('mingus', 'mingus')
+    add_db('mingus', 'mingus')
 
-def run_chef():
+def add_dbuser(user, passwd):
+    sudo('psql -c "CREATE USER %s WITH NOCREATEDB NOCREATEUSER PASSWORD \'%s\'" -d postgres -U postgres' % (user, passwd))
+
+def syncdb():
     _config()
-    """
-    Run Chef-solo on the remote server
-    """
-    project.rsync_project(local_dir='chef', remote_dir='/tmp', delete=True)
-    sudo('rsync -ar --delete /tmp/chef/ /etc/chef/')
-    sudo('chef-solo')
+    run("/home/%(user)s/%(project_name)s/bin/python /home/%(user)s/%(project_name)s/django-mingus/mingus/manage.py syncdb --noinput" % env)
+
+def migrate():
+    _config()
+    run("/home/%(user)s/%(project_name)s/bin/python /home/%(user)s/%(project_name)s/django-mingus/mingus/manage.py migrate" % env)
     
+def add_site():
+    _config()                            
+    run("DJANGO_SETTINGS_MODULE=settings /home/%(user)s/%(project_name)s/bin/python -c \"import sys;sys.path.append('/home/%(user)s/%(project_name)s/django-mingus/mingus');from django.contrib.sites.models import Site;Site.objects.create(domain='example.com', name='example')\"" % env)
     
-    
-    
+def add_superuser():
+    _config()                            
+    run("DJANGO_SETTINGS_MODULE=settings /home/%(user)s/%(project_name)s/bin/python -c \"import sys;sys.path.append('/home/%(user)s/%(project_name)s/django-mingus/mingus');from django.contrib.auth.models import User;User.objects.create_superuser('mingus', 'test@test.com', 'mingus')\"" % env)
+
+
+
+   
