@@ -92,6 +92,7 @@ def reload():
 def setup_all():
     setup_webserver()
     setup_dbserver()
+    syncdb()
     add_site()
     add_superuser()
     
@@ -111,7 +112,6 @@ def setup_dbserver():
         use_sudo=True)
     sudo("chown -R postgres:postgres /etc/postgresql/8.4/main")    
     sudo("invoke-rc.d postgresql-8.4 restart")
-    
     configure_db()
 
 def setup_webserver():
@@ -164,19 +164,23 @@ def setup_webapp():
     # Now do the normal deploy.
     deploy()
     
-    
+def add_postgis_db():
+	put("create_template_postgis-debian.sh", "/home/%(user)s/create_template_postgis-debian.sh" % env)
+	sudo("su postgres -c 'bash /home/%(user)s/create_template_postgis-debian.sh'" % env)
+ 
 def add_db(dbname, owner, template=''):
     if template:
-        template = ' TEMPLATE %s'
-    sudo('psql -c "CREATE DATABASE %s %s ENCODING \'unicode\' OWNER %s" -d postgres -U postgres' % (dbname, template, owner))
-    
-def configure_db():
-    _config()                            
-    add_dbuser('mingus', 'mingus')
-    add_db('mingus', 'mingus')
+        template = ' TEMPLATE %s' % template
+    sudo('psql -c "CREATE DATABASE %s%s ENCODING \'unicode\' OWNER %s" -d postgres -U postgres' % (dbname, template, owner))
 
 def add_dbuser(user, passwd):
     sudo('psql -c "CREATE USER %s WITH NOCREATEDB NOCREATEUSER PASSWORD \'%s\'" -d postgres -U postgres' % (user, passwd))
+    
+def configure_db():
+    _config()
+    add_postgis_db()
+    add_dbuser('mingus', 'mingus')
+    add_db('mingus', 'mingus', 'template_postgis')
 
 def syncdb():
     _config()
