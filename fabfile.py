@@ -24,7 +24,6 @@ env.roledefs = {
     'production': ['vagrant@10.0.2.2:6622']
 } 
 
-
 def _new_user(username, group='users', password=False):
 
     # Create the new admin user (default group=username); add to admin group
@@ -39,7 +38,6 @@ def _new_user(username, group='users', password=False):
         sudo('echo "{username}:{password}" | chpasswd'.format(
             username=admin_username,
             password=admin_password))
-
 
 def _put_template(localpath, remotepath, templatevars, **kwargs):
     template = open(localpath).read()
@@ -60,8 +58,6 @@ def _config():
     env.apache_run_group = 'www-data'
     env.servername = 'blog.com'
     
-    
- 
 def deploy():
     _config()
     "Full deploy: push, buildout, and reload."
@@ -197,7 +193,3 @@ def add_site():
 def add_superuser():
     _config()                            
     run("DJANGO_SETTINGS_MODULE=settings /home/%(user)s/%(project_name)s/bin/python -c \"import sys;sys.path.append('/home/%(user)s/%(project_name)s/django-mingus/mingus');from django.contrib.auth.models import User;User.objects.create_superuser('mingus', 'test@test.com', 'mingus')\"" % env)
-
-
-
-   
