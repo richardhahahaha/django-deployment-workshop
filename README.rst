@@ -15,7 +15,6 @@ environment for a Python WSGI stack, including:
 .. _pip: http://pip.rtfd.org/
 .. _virtualenv: http://virtualenv.rtfd.org/
 .. _fabric: http://fabfile.org/
-.. _buildout: http://buildout.org/
 .. _mod_wsgi: http://modwsgi.org/
 .. _nginx: http://wiki.nginx.org/
 .. _memcached: http://memcached.org/
@@ -36,15 +35,46 @@ application built on a bunch existing reusable apps.
 Getting the app running
 =======================
 
-See Mingus's INSTALL_ doc for the basics of getting Mingus running. If you're
-on a VM or remote server remember that you'll have to ``runserver 0.0.0.0:8000`` to get Django listening on public IP interfaces.
+Install putty_, msysgit_, virtualbox_, ruby_ (jruby_ on 64bit oses) and vagrant_.
 
-.. _install: https://github.com/montylounge/django-mingus/blob/master/docs/INSTALL.textile
+.. _putty: http://www.chiark.greenend.org.uk/~sgtatham/putty/download.html
+.. _virtualbox: http://www.virtualbox.org/
 
-After than, start deploying. My script for the install is in ``notes``; be sure to follow along with the most recent one (PyCon 2011 as of this writing).
-The other scripts are there for posterity.
+.. _vagrant: http://vagrantup.com/
 
-If you're not using Ubuntu 10.04 LTS then YMMV.
+When installing msysgit_ add the context menu for "Git bash here".
+
+.. _msysgit: http://code.google.com/p/msysgit/
+
+After installing ruby_ or jruby_ and the devkit_ , open a cmd shell and do a (j)gem install vagrant
+
+
+.. _jruby: http://www.jruby.org/
+.. _devkit: http://rubyinstaller.org/add-ons/devkit/
+
+Make a dir to check out the workshop. Eg. C:\vagrant\ right click the dir and "Git bash here".
+
+    git clone https://github.com/fivethreeo/django-deployment-workshop.git
+
+Close the git bash window. Hold shift and right clik the dir and "Open command window here".
+
+    copy django-deployment-workshop\vagrant\Vagrantfile .
+
+    vagrant up
+
+
+Connect to 127.0.0.1:4422 using putty with the keyfile C:\Ruby192\lib\ruby\gems\1.9.1\gems\vagrant-0.7.2\keys\vagrant.ppk, depending on ruby_ version.
+.. _ruby: http://www.ruby-lang.org/
+
+In the terminal window (putty) do:
+
+    cd /vagrant/django-deployment-workshop
+
+    sudo bash bootstrap_dev.sh
+
+    fab setup_all -R develop -p vagrant
+
+Open a webbrowser to http://127.0.0.1:4480/admin/, login using user: mingus password: mingus
 
 Further reading
 ===============
@@ -73,7 +103,6 @@ this stuff. Good luck!
     * memcached_.
     * Django's `caching framework`_.
     * pgpool2_.
-    * Chef_, specifically `Chef Solo`_.
     
 .. _ubuntu:
 .. _git: http://git-scm.com/documentation
@@ -91,5 +120,3 @@ this stuff. Good luck!
 .. _proxy: http://wiki.nginx.org/NginxHttpProxyModule
 .. _`caching framework`: http://docs.djangoproject.com/en/dev/topics/cache/
 .. _pgpool2: http://pgpool.projects.postgresql.org/pgpool-II/doc/pgpool-en.html
-.. _chef: http://wiki.opscode.com/display/chef/Home
-.. _chef solo: http://wiki.opscode.com/display/chef/Chef+Solo
