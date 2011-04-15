@@ -13,12 +13,12 @@ Legg til tur
 {% csrf_token %}
 <dl>
     {% for field in form %}
-    <dt class="{% if field.errors %}errors {% endif %}">{{ field.label_tag }}{% if field.field.required %}*{% endif %}</dt>
-    <dd class="{% if field.errors %}errors {% endif %}">{{ field }}{{ field.errors }}  </dd>
+    <dt class="cleared{% if field.errors %} errors{% endif %}">{{ field.label_tag }}{% if field.field.required %}*{% endif %}</dt>
+    <dd class="cleared{% if field.errors %} errors{% endif %}">{{ field }}{{ field.errors }}  </dd>
 
     {% endfor %}
-    <dt class="cleared">Alle felter med (*) er påkrevd  </dd></dt>
-    <dd class="cleared {% if form.non_field_errors %}errors{% endif %}">{{ form.non_field_errors }}<input type="submit" value="Send"> <input type="reset"></dd>
+    <dt class="cleared centered">Alle felter med (*) er påkrevd  </dd></dt>
+    <dd class="cleared centered{% if form.non_field_errors %} errors{% endif %}">{{ form.non_field_errors }}<input type="submit" value="Send"> <input type="reset"></dd>
 </dl>
 </dl>
 

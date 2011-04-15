@@ -2,7 +2,7 @@ from django import forms
 from django.db import models
 from django.utils.safestring import mark_safe
 
-DEFAULT_WIDTH = 450
+DEFAULT_WIDTH = 400
 DEFAULT_HEIGHT = 300
 
 DEFAULT_LAT = 55.16
@@ -22,7 +22,7 @@ class LocationWidget(forms.TextInput):
             lat, lng = DEFAULT_LAT, DEFAULT_LNG
         else:
             if isinstance(value, unicode):
-                a, b = value.split(',')
+                a, b = value[5:-1].split(',')
             else:
                 a, b = value
             lat, lng = float(a), float(b)
@@ -31,6 +31,7 @@ class LocationWidget(forms.TextInput):
 <script type="text/javascript">
 //<![CDATA[
     var map_%(name)s;
+    var click_%(name)s;
     
     function savePosition_%(name)s(point)
     {
@@ -62,10 +63,28 @@ class LocationWidget(forms.TextInput):
             savePosition_%(name)s(mouseEvent.latLng);
         });
 
-        google.maps.event.addListener(map_%(name)s, 'click', function(mouseEvent){
+        function singleClick(mouseEvent) {
             marker.setPosition(mouseEvent.latLng);
             savePosition_%(name)s(mouseEvent.latLng);
+        }
+        
+        google.maps.event.addListener(map_%(name)s, 'click', function(mouseEvent){
+            click_%(name)s = 0
+            var that = this
+            setTimeout(function() {
+                var dblclick = click_%(name)s
+                if (dblclick > 0) {
+                    click_%(name)s = dblclick-1
+                } else {
+                    singleClick.call(that, mouseEvent);
+                }
+            }, 300);
         });
+
+        google.maps.event.addListener(map_%(name)s, 'dblclick', function(mouseEvent){
+            click_%(name)s = 2
+        });
+
 
     }
     
@@ -95,7 +114,7 @@ class LocationFormField(forms.CharField):
             a, b = value
 
         lat, lng = float(a), float(b)
-        return "%f,%f" % (lat, lng)
+        return "POINT(%f,%f)" % (lat, lng)
 
 class LocationField(models.CharField):
     def formfield(self, **kwargs):

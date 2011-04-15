@@ -94,13 +94,17 @@ def push():
     "Push out new code to the server."
     #with cd("%(root)s/django-carpool" % env):
     #    sudo("git pull")
-    project.rsync_project("/home/%(user)s/%(project_name)s/django-carpool/" % env, "apps/django-carpool/")
+    # project.rsync_project("/home/%(user)s/%(project_name)s/django-carpool/" % env, "apps/django-carpool/", extra_opts="--password-file=rsync_pw")
+    project.upload_project()
+    run("rm -rf /home/%(user)s/%(project_name)s/django-carpool" % env)
+    run("cp -rf apps/django-carpool /home/%(user)s/%(project_name)s/django-carpool" % env)
     _put_template("config/local_settings.py",
         "%(root)s/django-carpool/carpool/local_settings.py" % env, env,
         use_sudo=True)
     _put_template("config/app.wsgi", "%(wsgipath)s" % env, env, use_sudo=True)
         
 def update_dependencies():
+    _config()
     "Update Mingus' requirements remotely."
     put("config/requirements.txt", "%(root)s/requirements.txt" % env)
     run("%(root)s/bin/pip install -r %(root)s/requirements.txt" % env)
@@ -116,9 +120,10 @@ def reload():
 
 def setup_all():
     setup_webserver()
+    setup_webapp()
+    update_dependencies()
     setup_dbserver()
     configure_db()
-    setup_webapp()
     deploy()
     syncdb()
     add_site()

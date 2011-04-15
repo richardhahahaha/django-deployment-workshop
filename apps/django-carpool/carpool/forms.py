@@ -7,5 +7,5 @@ class TripForm(forms.ModelForm):
     class Meta:
         model = Trip
         
-    from_point = LocationFormField(widget=LocationWidget)
-    to_point = LocationFormField(widget=LocationWidget)
+    from_point = LocationFormField(widget=LocationWidget, label="Fra")
+    to_point = LocationFormField(widget=LocationWidget, label="Til")
