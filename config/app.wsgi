@@ -20,10 +20,10 @@ for item in list(sys.path):
 sys.path[:0] = new_sys_path 
 
 # Add the app code to the path
-sys.path.append('/home/%(user)s/%(project_name)s/django-mingus')
+sys.path.append('/home/%(user)s/%(project_name)s/django-carpool')
 
 # Now do DJANGO_SETTINGS_MODULE and create the WSGI app.
-os.environ['DJANGO_SETTINGS_MODULE'] = 'mingus.settings'
+os.environ['DJANGO_SETTINGS_MODULE'] = 'carpool.settings'
 import django.core.handlers.wsgi
 application = django.core.handlers.wsgi.WSGIHandler()
 

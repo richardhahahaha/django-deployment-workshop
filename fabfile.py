@@ -12,7 +12,7 @@ from fabric.contrib import project, files
 import os
 from tempfile import NamedTemporaryFile
 
-env.project_name = 'myblog'
+env.project_name = 'carpool'
 
 # This is a bit more complicated than needed because I'm using Vagrant
 # for the examples.
@@ -24,6 +24,14 @@ env.roledefs = {
     'production': ['vagrant@10.0.2.2:6622']
 } 
 
+def manage(cmd):
+    cmdstr = "/home/%(user)s/%(project_name)s/bin/python /home/%(user)s/%(project_name)s/django-carpool/carpool/manage.py %%s" % env
+    return cmdstr % cmd
+     
+def python(cmd):
+    cmdstr = "DJANGO_SETTINGS_MODULE=settings /home/%(user)s/%(project_name)s/bin/python -c \"import sys;sys.path.append('/home/%(user)s/%(project_name)s/django-carpool/');sys.path.append('/home/%(user)s/%(project_name)s/django-carpool/carpool/');%%s\"" % env
+    return cmdstr % cmd
+    
 def _new_user(username, group='users', password=False):
 
     # Create the new admin user (default group=username); add to admin group
@@ -39,12 +47,21 @@ def _new_user(username, group='users', password=False):
             username=admin_username,
             password=admin_password))
 
-def _put_template(localpath, remotepath, templatevars, **kwargs):
+def _render_template(localpath, templatevars):
     template = open(localpath).read()
-    output = str(template) % templatevars
+    return str(template) % templatevars	
+
+def _make_temp(data):
     tmpfile = NamedTemporaryFile(delete=False)
-    tmpfile.write(output)
+    tmpfile.write(data)
     tmpfile.close()
+    return tmpfile
+            
+def _make_template_temp(localpath, templatevars):
+    return _make_temp(_render_template(localpath, templatevars))
+    
+def _put_template(localpath, remotepath, templatevars, **kwargs):
+    tmpfile = _make_template_temp(localpath, templatevars)
     put(tmpfile.name, remotepath, **kwargs)
     os.unlink(tmpfile.name)
     
@@ -56,29 +73,35 @@ def _config():
     env.apache_pid_file = '/var/run/apache2.pid'
     env.apache_run_user = 'www-data'
     env.apache_run_group = 'www-data'
-    env.servername = 'blog.com'
+    env.servername = 'carpool.com'
+    env.db_user =  "carpool"
+    env.db_password = "carpool"
+    env.db_name = "carpool"
+    env.db_host = "localhost"
     
 def deploy():
     _config()
     "Full deploy: push, buildout, and reload."
     push()
     update_dependencies()
+    run(manage("collectstatic --noinput"))
     reload()
     
 def push():
+    _config()
     "Push out new code to the server."
-    with cd("%(root)s/django-mingus" % env):
-        sudo("git pull")
-        
+    #with cd("%(root)s/django-carpool" % env):
+    #    sudo("git pull")
+    project.rsync_project("/home/%(user)s/%(project_name)s/django-carpool/" % env, "apps/django-carpool/")
     _put_template("config/local_settings.py",
-        "%(root)s/django-mingus/mingus/local_settings.py" % env, env,
+        "%(root)s/django-carpool/carpool/local_settings.py" % env, env,
         use_sudo=True)
     _put_template("config/app.wsgi", "%(wsgipath)s" % env, env, use_sudo=True)
         
 def update_dependencies():
     "Update Mingus' requirements remotely."
-    put("config/requirements.txt", "%(root)s/requirements.txt" % env, use_sudo=True)
-    sudo("%(root)s/bin/pip install -r %(root)s/requirements.txt" % env)
+    put("config/requirements.txt", "%(root)s/requirements.txt" % env)
+    run("%(root)s/bin/pip install -r %(root)s/requirements.txt" % env)
         
 def reload():
     "Reload Apache to pick up new code changes."
@@ -110,8 +133,8 @@ def setup_dbserver():
     put("postgresql/postgresql.conf",
         "/etc/postgresql/8.4/main/postgresql.conf" % env,
         use_sudo=True)
-    sudo("chown -R postgres:postgres /etc/postgresql/8.4/main")    
     sudo("invoke-rc.d postgresql-8.4 restart")
+    add_postgis_db()
     configure_db()
 
 def setup_webserver():
@@ -126,16 +149,14 @@ def setup_webserver():
     a useful example of a more complex Fabric operation.
     
     Dev setup:
-    sudo apt-get install build-essential python-dev python-setuptools python-pip ruby git-core
-    sudo pip install fabric
-    sudo gem install vagrant
+
     """
     # Initial setup and package install.
     sudo("aptitude update")
     sudo("aptitude -y install git-core python-dev python-setuptools "
                               "postgresql-dev postgresql-client build-essential "
                               "libpq-dev subversion mercurial apache2 "
-                              "binutils libgdal1-1.5.0 "
+                              "binutils gdal-bin "
                               "libapache2-mod-wsgi")
 
     with cd("/etc/apache2"):
@@ -150,17 +171,12 @@ def setup_webapp():
     sudo("easy_install virtualenv")
     run("virtualenv /home/%(user)s/%(project_name)s" % env)
     run("/home/%(user)s/%(project_name)s/bin/pip install -U pip" % env)
-
-    # Check out Mingus
-    with cd("/home/%(user)s/%(project_name)s" % env):
-        run("git clone git://github.com/montylounge/django-mingus.git")
-
+    run("mkdir -p /home/%(user)s/%(project_name)s" % env)
     run("mkdir -p /home/%(user)s/static" % env)
     sudo("mkdir -p /etc/apache2/sites-enabled" % env)
-    
     _put_template("apache/site.conf", "/etc/apache2/sites-enabled/%(project_name)s.conf" % env, env, use_sudo=True)
-    run('ln -s /home/%(user)s/%(project_name)s/django-mingus/mingus/media/mingus /home/%(user)s/static/mingus' % env)
-    run('ln -s /home/%(user)s/%(project_name)s/lib/python2.6/site-packages/django/contrib/admin/media /home/%(user)s/static/admin_media' % env)
+    #run('ln -s /home/%(user)s/%(project_name)s/django-mingus/mingus/media/mingus /home/%(user)s/static/mingus' % env)
+    #run('ln -s /home/%(user)s/%(project_name)s/lib/python2.6/site-packages/django/contrib/admin/media /home/%(user)s/static/admin_media' % env)
     # Now do the normal deploy.
     deploy()
     
@@ -178,22 +194,26 @@ def add_dbuser(user, passwd):
     
 def configure_db():
     _config()
-    add_postgis_db()
-    add_dbuser('mingus', 'mingus')
-    add_db('mingus', 'mingus', 'template_postgis')
-
+    add_dbuser(env.db_user, env.db_password)
+    add_db(env.db_name, env.db_user, 'template_postgis')
+    add_srs()
+    
 def syncdb():
     _config()
-    run("/home/%(user)s/%(project_name)s/bin/python /home/%(user)s/%(project_name)s/django-mingus/mingus/manage.py syncdb --noinput" % env)
+    run(manage("syncdb --noinput"))
 
 def migrate():
     _config()
-    run("/home/%(user)s/%(project_name)s/bin/python /home/%(user)s/%(project_name)s/django-mingus/mingus/manage.py migrate" % env)
+    run(manage("migrate"))
+    
+def add_srs():
+    _config()                            
+    run(python("from django.contrib.gis.utils import add_srs_entry;add_srs_entry(900913)"))
     
 def add_site():
     _config()                            
-    run("DJANGO_SETTINGS_MODULE=settings /home/%(user)s/%(project_name)s/bin/python -c \"import sys;sys.path.append('/home/%(user)s/%(project_name)s/django-mingus/mingus');from django.contrib.sites.models import Site;Site.objects.create(domain='example.com', name='example')\"" % env)
+    run(python("from django.contrib.sites.models import Site;Site.objects.create(domain='example.com', name='example')"))
     
 def add_superuser():
     _config()                            
-    run("DJANGO_SETTINGS_MODULE=settings /home/%(user)s/%(project_name)s/bin/python -c \"import sys;sys.path.append('/home/%(user)s/%(project_name)s/django-mingus/mingus');from django.contrib.auth.models import User;User.objects.create_superuser('mingus', 'test@test.com', 'mingus')\"" % env)
+    run(python("from django.contrib.auth.models import User;User.objects.create_superuser('carpool', 'testuser@test.com', 'carpool')"))

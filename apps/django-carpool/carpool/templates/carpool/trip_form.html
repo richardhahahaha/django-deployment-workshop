@@ -1,0 +1,26 @@
+{% extends "carpool/carpool_base.html" %}
+
+{% block extrahead %}
+{{ form.media }}
+{% endblock extrahead %}
+
+{% block heading %}
+Legg til tur
+{% endblock heading %}
+
+{% block content %}
+<form method="POST" enctype="multipart/form-data">
+{% csrf_token %}
+<dl>
+    {% for field in form %}
+    <dt class="{% if field.errors %}errors {% endif %}">{{ field.label_tag }}{% if field.field.required %}*{% endif %}</dt>
+    <dd class="{% if field.errors %}errors {% endif %}">{{ field }}{{ field.errors }}  </dd>
+
+    {% endfor %}
+    <dt class="cleared">Alle felter med (*) er påkrevd  </dd></dt>
+    <dd class="cleared {% if form.non_field_errors %}errors{% endif %}">{{ form.non_field_errors }}<input type="submit" value="Send"> <input type="reset"></dd>
+</dl>
+</dl>
+
+</form>
+{% endblock content %}
