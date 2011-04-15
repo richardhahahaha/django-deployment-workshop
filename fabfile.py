@@ -202,7 +202,8 @@ def configure_db():
     _add_dbuser(env.db_user, env.db_password)
     _add_db(env.db_name, env.db_user, 'template_postgis')
     add_srs()
-    
+
+       
 def syncdb():
     _config()
     run(_manage("syncdb --noinput"))

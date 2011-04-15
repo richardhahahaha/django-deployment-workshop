@@ -6,8 +6,21 @@ DEFAULT_WIDTH = 400
 DEFAULT_HEIGHT = 300
 
 DEFAULT_LAT = 55.16
-DEFAULT_LNG = 61.4
+DEFAULT_LNG = 33.16
 
+import re
+POINT_RE = re.compile("POINT\s?\((?P<lat>\-?\d+\.\d+)\s(?P<lng>\-?\d+\.\d+)\)")
+
+def point_to_latlng(value):
+    if isinstance(value, unicode):
+        m = POINT_RE.search(value)
+        if m:
+            a, b = m.group('lat'), m.group('lng')
+        else:
+            a, b = value.split(',')
+        return float(a), float(b)
+    return value
+            
 class LocationWidget(forms.TextInput):
     def __init__(self, *args, **kw):
 
@@ -21,12 +34,9 @@ class LocationWidget(forms.TextInput):
         if value is None:
             lat, lng = DEFAULT_LAT, DEFAULT_LNG
         else:
-            if isinstance(value, unicode):
-                a, b = value[5:-1].split(',')
-            else:
-                a, b = value
-            lat, lng = float(a), float(b)
-
+            value = value.transform(900013) 
+            value = value.wkt
+            lat, lng = point_to_latlng(value)
         js = '''
 <script type="text/javascript">
 //<![CDATA[
@@ -106,15 +116,15 @@ class LocationWidget(forms.TextInput):
             'http://maps.google.com/maps/api/js?sensor=false',
         )
 
-class LocationFormField(forms.CharField):
-    def clean(self, value):
-        if isinstance(value, unicode):
-            a, b = value.split(',')
-        else:
-            a, b = value
+from django.contrib.gis.geos import *
 
-        lat, lng = float(a), float(b)
-        return "POINT(%f,%f)" % (lat, lng)
+class LocationFormField(forms.CharField):
+    
+    def clean(self, value):
+        super(LocationFormField, self).clean(value)
+        lat, lng = point_to_latlng(value)
+        p=Point(lat, lng, srid=900013)
+        return p
 
 class LocationField(models.CharField):
     def formfield(self, **kwargs):
