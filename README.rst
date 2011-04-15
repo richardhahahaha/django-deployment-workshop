@@ -58,10 +58,9 @@ Make a dir to check out the workshop. Eg. C:\\vagrant\\ right click the dir and 
 
 Close the git bash window. Hold shift and right clik the dir and "Open command window here".
 
-    copy django-deployment-workshop\vagrant\Vagrantfile .
+    copy django-deployment-workshop\\vagrant\\Vagrantfile .
 
     vagrant up
-
 
 Connect to 127.0.0.1:4422 using putty with the keyfile C:\Ruby192\lib\ruby\gems\1.9.1\gems\vagrant-0.7.2\keys\vagrant.ppk, depending on ruby_ version.
 
