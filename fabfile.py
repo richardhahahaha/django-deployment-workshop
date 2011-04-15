@@ -10,7 +10,8 @@ import contextlib
 from fabric.api import env, run, cd, sudo, put, require, settings, hide 
 from fabric.contrib import project, files
 import os
-from tempfile import NamedTemporaryFile
+import time
+from tempfile import NamedTemporaryFile as _NamedTemporaryFile
 
 env.project_name = 'carpool'
 
@@ -24,11 +25,12 @@ env.roledefs = {
     'production': ['vagrant@10.0.2.2:6622']
 } 
 
-def manage(cmd):
+# utility functions
+def _manage(cmd):
     cmdstr = "/home/%(user)s/%(project_name)s/bin/python /home/%(user)s/%(project_name)s/django-carpool/carpool/manage.py %%s" % env
     return cmdstr % cmd
      
-def python(cmd):
+def _python(cmd):
     cmdstr = "DJANGO_SETTINGS_MODULE=settings /home/%(user)s/%(project_name)s/bin/python -c \"import sys;sys.path.append('/home/%(user)s/%(project_name)s/django-carpool/');sys.path.append('/home/%(user)s/%(project_name)s/django-carpool/carpool/');%%s\"" % env
     return cmdstr % cmd
     
@@ -52,7 +54,7 @@ def _render_template(localpath, templatevars):
     return str(template) % templatevars	
 
 def _make_temp(data):
-    tmpfile = NamedTemporaryFile(delete=False)
+    tmpfile = _NamedTemporaryFile(delete=False)
     tmpfile.write(data)
     tmpfile.close()
     return tmpfile
@@ -84,7 +86,7 @@ def deploy():
     "Full deploy: push, buildout, and reload."
     push()
     update_dependencies()
-    run(manage("collectstatic --noinput"))
+    run(_manage("collectstatic --noinput"))
     reload()
     
 def push():
@@ -115,6 +117,9 @@ def reload():
 def setup_all():
     setup_webserver()
     setup_dbserver()
+    configure_db()
+    setup_webapp()
+    deploy()
     syncdb()
     add_site()
     add_superuser()
@@ -134,8 +139,8 @@ def setup_dbserver():
         "/etc/postgresql/8.4/main/postgresql.conf" % env,
         use_sudo=True)
     sudo("invoke-rc.d postgresql-8.4 restart")
+    time.sleep(7)
     add_postgis_db()
-    configure_db()
 
 def setup_webserver():
     _config()
@@ -163,7 +168,6 @@ def setup_webserver():
         sudo("rm -rf apache2.conf conf.d/ httpd.conf magic mods-* sites-* ports.conf")
     _put_template("apache/apache2.conf", "/etc/apache2/apache2.conf", env, use_sudo=True)
     sudo("mkdir -m777 -p /var/www/.python-eggs")
-    setup_webapp()
     
 def setup_webapp():
     _config()
@@ -175,45 +179,41 @@ def setup_webapp():
     run("mkdir -p /home/%(user)s/static" % env)
     sudo("mkdir -p /etc/apache2/sites-enabled" % env)
     _put_template("apache/site.conf", "/etc/apache2/sites-enabled/%(project_name)s.conf" % env, env, use_sudo=True)
-    #run('ln -s /home/%(user)s/%(project_name)s/django-mingus/mingus/media/mingus /home/%(user)s/static/mingus' % env)
-    #run('ln -s /home/%(user)s/%(project_name)s/lib/python2.6/site-packages/django/contrib/admin/media /home/%(user)s/static/admin_media' % env)
-    # Now do the normal deploy.
-    deploy()
-    
+
 def add_postgis_db():
 	put("create_template_postgis-debian.sh", "/home/%(user)s/create_template_postgis-debian.sh" % env)
 	sudo("su postgres -c 'bash /home/%(user)s/create_template_postgis-debian.sh'" % env)
  
-def add_db(dbname, owner, template=''):
+def _add_db(dbname, owner, template=''):
     if template:
         template = ' TEMPLATE %s' % template
     sudo('psql -c "CREATE DATABASE %s%s ENCODING \'unicode\' OWNER %s" -d postgres -U postgres' % (dbname, template, owner))
 
-def add_dbuser(user, passwd):
+def _add_dbuser(user, passwd):
     sudo('psql -c "CREATE USER %s WITH NOCREATEDB NOCREATEUSER PASSWORD \'%s\'" -d postgres -U postgres' % (user, passwd))
     
 def configure_db():
     _config()
-    add_dbuser(env.db_user, env.db_password)
-    add_db(env.db_name, env.db_user, 'template_postgis')
+    _add_dbuser(env.db_user, env.db_password)
+    _add_db(env.db_name, env.db_user, 'template_postgis')
     add_srs()
     
 def syncdb():
     _config()
-    run(manage("syncdb --noinput"))
+    run(_manage("syncdb --noinput"))
 
 def migrate():
     _config()
-    run(manage("migrate"))
+    run(_manage("migrate"))
     
 def add_srs():
     _config()                            
-    run(python("from django.contrib.gis.utils import add_srs_entry;add_srs_entry(900913)"))
+    run(_python("from django.contrib.gis.utils import add_srs_entry;add_srs_entry(900913)"))
     
 def add_site():
     _config()                            
-    run(python("from django.contrib.sites.models import Site;Site.objects.create(domain='example.com', name='example')"))
+    run(_python("from django.contrib.sites.models import Site;Site.objects.create(domain='example.com', name='example')"))
     
 def add_superuser():
     _config()                            
-    run(python("from django.contrib.auth.models import User;User.objects.create_superuser('carpool', 'testuser@test.com', 'carpool')"))
+    run(_python("from django.contrib.auth.models import User;User.objects.create_superuser('carpool', 'testuser@test.com', 'carpool')"))
