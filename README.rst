@@ -52,7 +52,7 @@ After installing ruby_ or jruby_ and the devkit_ , open a cmd shell and do a (j)
 .. _jruby: http://www.jruby.org/
 .. _devkit: http://rubyinstaller.org/add-ons/devkit/
 
-Make a dir to check out the workshop. Eg. C:\vagrant\ right click the dir and "Git bash here".
+Make a dir to check out the workshop. Eg. C:\\vagrant\\ right click the dir and "Git bash here".
 
     git clone https://github.com/fivethreeo/django-deployment-workshop.git
 
@@ -64,6 +64,7 @@ Close the git bash window. Hold shift and right clik the dir and "Open command w
 
 
 Connect to 127.0.0.1:4422 using putty with the keyfile C:\Ruby192\lib\ruby\gems\1.9.1\gems\vagrant-0.7.2\keys\vagrant.ppk, depending on ruby_ version.
+
 .. _ruby: http://www.ruby-lang.org/
 
 In the terminal window (putty) do:
