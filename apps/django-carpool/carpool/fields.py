@@ -1,6 +1,8 @@
 from django import forms
 from django.db import models
 from django.utils.safestring import mark_safe
+from django.contrib.gis.geos import *
+from django.contrib.gis.db import models
 
 DEFAULT_WIDTH = 400
 DEFAULT_HEIGHT = 300
@@ -9,7 +11,7 @@ DEFAULT_LAT = 55.16
 DEFAULT_LNG = 33.16
 
 import re
-POINT_RE = re.compile("POINT\s?\((?P<lat>\-?\d+\.\d+)\s(?P<lng>\-?\d+\.\d+)\)")
+POINT_RE = re.compile("POINT\s?\((?P<lng>\-?\d+\.\d+)\s(?P<lat>\-?\d+\.\d+)\)")
 
 def point_to_latlng(value):
     if isinstance(value, unicode):
@@ -34,9 +36,13 @@ class LocationWidget(forms.TextInput):
         if value is None:
             lat, lng = DEFAULT_LAT, DEFAULT_LNG
         else:
-            value = value.transform(900013) 
-            value = value.wkt
-            lat, lng = point_to_latlng(value)
+            if isinstance(value, unicode):
+                lat, lng = point_to_latlng(value)
+            else:
+                if value.srid != 900913:
+                    value.transform(900913)
+                value = unicode(value.wkt)
+                lat, lng = point_to_latlng(value)
         js = '''
 <script type="text/javascript">
 //<![CDATA[
@@ -116,17 +122,15 @@ class LocationWidget(forms.TextInput):
             'http://maps.google.com/maps/api/js?sensor=false',
         )
 
-from django.contrib.gis.geos import *
 
 class LocationFormField(forms.CharField):
     
     def clean(self, value):
-        super(LocationFormField, self).clean(value)
         lat, lng = point_to_latlng(value)
-        p=Point(lat, lng, srid=900013)
+        p = Point(lng, lat, srid=900913)
         return p
 
-class LocationField(models.CharField):
+class LocationField(models.PointField):
     def formfield(self, **kwargs):
         defaults = {'form_class': LocationFormField}
         defaults.update(kwargs)

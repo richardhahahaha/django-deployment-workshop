@@ -1,0 +1,52 @@
+NAME="%(project_name)s"
+PROJECT_DIR="$HOME/%(project_name)s/django-carpool/carpool"
+
+VIRTUALENV="$HOME/%(project_name)s"
+
+GUNICORN_PORT=%(gunicorn_port)s
+GUNICORN_HOST="%(gunicorn_host)s"
+
+# Do not change anything below unless you know what you do
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+PYTHONPATH="%(extra_paths)s"
+
+GUNICORN_PIDFILE="$PROJECT_DIR/$NAME.pid"
+GUNICORN_DAEMON="$VIRTUALENV/bin/python $VIRTUALENV/bin/gunicorn_django"
+
+GUNICORN_OPTS="-b $GUNICORN_HOST:$GUNICORN_PORT --log-file $PROJECT_DIR/$NAME.log -D --pid=$GUNICORN_PIDFILE --preload"
+
+fail () {
+    echo "failed!"
+    exit 1
+}
+
+success () {
+    echo "$NAME."
+}
+
+case "$1" in
+  start)
+      echo -n "Starting $NAME: "
+      if cd $PROJECT_DIR && $GUNICORN_DAEMON $GUNICORN_OPTS; then
+        success
+      else
+        fail
+      fi
+    ;;
+  stop)
+      echo -n "Stopping $NAME: "
+      if kill -QUIT `cat $GUNICORN_PIDFILE`; then
+        success
+      else
+        fail
+      fi
+    ;;
+  restart)
+      $0 stop
+      $0 start
+    ;;
+  *)
+      echo "Usage: $0 {start|stop|restart}"
+      exit 1
+esac

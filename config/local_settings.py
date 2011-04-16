@@ -43,3 +43,5 @@ CACHE_MIDDLEWARE_KEY_PREFIX = '%(project_name)s.'
 CACHE_MIDDLEWARE_ANONYMOUS_ONLY = True
 
 INTERNAL_IPS = ('127.0.0.1',)
+
+%(extra_settings)s

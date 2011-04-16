@@ -9,89 +9,53 @@ provisioning example).
 import contextlib
 from fabric.api import env, run, cd, sudo, put, require, settings, hide 
 from fabric.contrib import project, files
-import os
 import time
-from tempfile import NamedTemporaryFile as _NamedTemporaryFile
-
-env.project_name = 'carpool'
 
 # This is a bit more complicated than needed because I'm using Vagrant
 # for the examples.
 env.key_filename = '/usr/lib/ruby/gems/1.8/gems/vagrant-0.7.2/keys/vagrant.ppk'
 
-env.roledefs = {
-    'develop': ['vagrant@127.0.0.1:22'],
-    'staging': ['vagrant@10.0.2.2:5522'],
-    'production': ['vagrant@10.0.2.2:6622']
-} 
+from fab_utils import _put_template
+# import settings
+from fab_settings import global_settings, group_settings, servers
 
-# utility functions
-def _manage(cmd):
+# prepare settings
+groupmapping = {}
+roledefs = {}
+for role, servers in servers.items():
+    roledefs[role] = []
+    for server in servers:
+       roledefs[role].append(server[0])
+       groupmapping[server[0]] = server[1]
+       
+env.roledefs = roledefs
+
+def config():
+    """ Utility: Setup settings """
+    for key, setting in global_settings.items():
+        env[key] = setting % env
+    for key, setting in group_settings[groupmapping[env.host_string]].items():
+        env[key] = setting % env
+
+def manage(cmd):
+    """  Utility: return manage.py oneliner """
     cmdstr = "/home/%(user)s/%(project_name)s/bin/python /home/%(user)s/%(project_name)s/django-carpool/carpool/manage.py %%s" % env
     return cmdstr % cmd
      
-def _python(cmd):
+def python(cmd):
+    """  Utility: return python one liner """
     cmdstr = "DJANGO_SETTINGS_MODULE=settings /home/%(user)s/%(project_name)s/bin/python -c \"import sys;sys.path.append('/home/%(user)s/%(project_name)s/django-carpool/');sys.path.append('/home/%(user)s/%(project_name)s/django-carpool/carpool/');%%s\"" % env
     return cmdstr % cmd
     
-def _new_user(username, group='users', password=False):
-
-    # Create the new admin user (default group=username); add to admin group
-    sudo('adduser {username} --disabled-password --gecos ""'.format(
-        username=username))
-    sudo('adduser {username} {group}'.format(
-        username=username,
-        group=group))
-        
-    if password:
-        # Set the password for the new admin user
-        sudo('echo "{username}:{password}" | chpasswd'.format(
-            username=admin_username,
-            password=admin_password))
-
-def _render_template(localpath, templatevars):
-    template = open(localpath).read()
-    return str(template) % templatevars	
-
-def _make_temp(data):
-    tmpfile = _NamedTemporaryFile(delete=False)
-    tmpfile.write(data)
-    tmpfile.close()
-    return tmpfile
-            
-def _make_template_temp(localpath, templatevars):
-    return _make_temp(_render_template(localpath, templatevars))
-    
-def _put_template(localpath, remotepath, templatevars, **kwargs):
-    tmpfile = _make_template_temp(localpath, templatevars)
-    put(tmpfile.name, remotepath, **kwargs)
-    os.unlink(tmpfile.name)
-    
-def _config():
-    env.root = "/home/%(user)s/%(project_name)s" % env
-    env.wsgipath = "/home/%(user)s/%(project_name)s.wsgi" % env
-    env.wsgi_user = env.user
-    env.wsgi_group = 'www-data'
-    env.apache_pid_file = '/var/run/apache2.pid'
-    env.apache_run_user = 'www-data'
-    env.apache_run_group = 'www-data'
-    env.servername = 'carpool.com'
-    env.db_user =  "carpool"
-    env.db_password = "carpool"
-    env.db_name = "carpool"
-    env.db_host = "localhost"
-    
 def deploy():
-    _config()
-    "Full deploy: push, buildout, and reload."
+    """Full deploy: push, pip and reload."""
     push()
     update_dependencies()
-    run(_manage("collectstatic --noinput"))
+    run(manage("collectstatic --noinput"))
     reload()
     
 def push():
-    _config()
-    "Push out new code to the server."
+    """ Push out new code to the server """
     #with cd("%(root)s/django-carpool" % env):
     #    sudo("git pull")
     # project.rsync_project("/home/%(user)s/%(project_name)s/django-carpool/" % env, "apps/django-carpool/", extra_opts="--password-file=rsync_pw")
@@ -103,25 +67,30 @@ def push():
         use_sudo=True)
     _put_template("config/app.wsgi", "%(wsgipath)s" % env, env, use_sudo=True)
         
-def update_dependencies():
-    _config()
-    "Update Mingus' requirements remotely."
+def update_dependencies():    
+    """ Update requirements remotely """
     put("config/requirements.txt", "%(root)s/requirements.txt" % env)
     run("%(root)s/bin/pip install -r %(root)s/requirements.txt" % env)
         
 def reload():
-    "Reload Apache to pick up new code changes."
-    sudo("invoke-rc.d apache2 reload")
+    """ Reload webserver/webapp """
+    if hasattr(env, 'use_nginx'):
+       sudo("kill -QUIT `cat /usr/local/nginx/logs/nginx.pid`")
+       sudo("/usr/local/nginx/sbin/nginx")
+       run("bash /home/%(user)s/%(project_name)s/bin/django_gunicorn restart" % env)
+    else:
+        "Reload Apache to pick up new code changes."
+        sudo("invoke-rc.d apache2 reload")
 
-#
 # OK, simple stuff done. Here's a more complex example: provisioning
 # a server the simplistic way.
-#
 
 def setup_all():
+    """ Setup all parts on one single server adds a fully running setup if run with -w and using apache """
     setup_webserver()
     setup_webapp()
     update_dependencies()
+    deploy()
     setup_dbserver()
     configure_db()
     deploy()
@@ -130,12 +99,12 @@ def setup_all():
     add_superuser()
     
 def setup_dbserver():
-    _config()
+    """ Setup database server with postgis_template db """
     sudo("aptitude update")
     sudo("aptitude -y install git-core  "
                               "build-essential "
                               "libpq-dev subversion mercurial apache2 "
-                              "binutils libgeos-dev "
+                              "binutils proj gdal-bin libgeos-dev "
                               "postgresql-8.4-postgis postgresql-server-dev-8.4")
     put("postgresql/pg_hba.conf",
         "/etc/postgresql/8.4/main/pg_hba.conf" % env,
@@ -148,7 +117,6 @@ def setup_dbserver():
     add_postgis_db()
 
 def setup_webserver():
-    _config()
     """
     Set up (bootstrap) a new server.
     
@@ -157,69 +125,77 @@ def setup_webserver():
     this -- consider, for example, what the various creation of directories,
     git repos, etc. will do if those things already exist. However, it's
     a useful example of a more complex Fabric operation.
-    
-    Dev setup:
-
     """
     # Initial setup and package install.
     sudo("aptitude update")
     sudo("aptitude -y install git-core python-dev python-setuptools "
                               "postgresql-dev postgresql-client build-essential "
                               "libpq-dev subversion mercurial apache2 "
-                              "binutils gdal-bin "
+                              "binutils proj gdal-bin "
                               "libapache2-mod-wsgi")
-
-    with cd("/etc/apache2"):
-        sudo("rm -rf apache2.conf conf.d/ httpd.conf magic mods-* sites-* ports.conf")
-    _put_template("apache/apache2.conf", "/etc/apache2/apache2.conf", env, use_sudo=True)
-    sudo("mkdir -m777 -p /var/www/.python-eggs")
-    
+    if hasattr(env, 'use_nginx'):
+        pass
+        # disabled for safety atm
+        # _put_template("ngnix/ngnix_webserver.conf", "/usr/local/nginx/conf/nginx.conf", env, use_sudo=True)
+        # sudo("mkdir -p /usr/local/nginx/conf/sites-enabled" % env)
+    else:
+        with cd("/etc/apache2"):
+            sudo("rm -rf apache2.conf conf.d/ httpd.conf magic mods-* sites-* ports.conf")
+        _put_template("apache/apache2.conf", "/etc/apache2/apache2.conf", env, use_sudo=True)
+        sudo("mkdir -m777 -p /var/www/.python-eggs")
+        sudo("mkdir -p /etc/apache2/sites-enabled" % env)
+        sudo("easy_install virtualenv")
+ 
 def setup_webapp():
-    _config()
-    # Create the virtualenv.
-    sudo("easy_install virtualenv")
-    run("virtualenv /home/%(user)s/%(project_name)s" % env)
+    """ Setup virtualenv/startup scripts/configs for webapp """
+    run("virtualenv /home/%(user)s/%(project_name)s --distribute" % env)
     run("/home/%(user)s/%(project_name)s/bin/pip install -U pip" % env)
     run("mkdir -p /home/%(user)s/%(project_name)s" % env)
     run("mkdir -p /home/%(user)s/static" % env)
-    sudo("mkdir -p /etc/apache2/sites-enabled" % env)
-    _put_template("apache/site.conf", "/etc/apache2/sites-enabled/%(project_name)s.conf" % env, env, use_sudo=True)
+    if hasattr(env, 'use_nginx'):
+        _put_template("nginx/nginx_webapp.conf", "/usr/local/nginx/conf/sites-enabled/%(project_name)s.conf" % env, env, use_sudo=True)
+        _put_template("config/django_gunicorn", "/home/%(user)s/%(project_name)s/bin/django_gunicorn" % env, env)
+        run("chmod gu+rx /home/%(user)s/%(project_name)s/bin/django_gunicorn" % env)
+    else:
+        _put_template("apache/site.conf", "/etc/apache2/sites-enabled/%(project_name)s.conf" % env, env, use_sudo=True)
 
 def add_postgis_db():
-	put("create_template_postgis-debian.sh", "/home/%(user)s/create_template_postgis-debian.sh" % env)
-	sudo("su postgres -c 'bash /home/%(user)s/create_template_postgis-debian.sh'" % env)
+    """ Add the postgis_template db """
+    put("create_template_postgis-debian.sh", "/home/%(user)s/create_template_postgis-debian.sh" % env)
+    sudo("su postgres -c 'bash /home/%(user)s/create_template_postgis-debian.sh'" % env)
  
-def _add_db(dbname, owner, template=''):
+def add_db(dbname, owner, template=''):
+    """ Add database: add_db:dbname,owner,<template> """
     if template:
         template = ' TEMPLATE %s' % template
-    sudo('psql -c "CREATE DATABASE %s%s ENCODING \'unicode\' OWNER %s" -d postgres -U postgres' % (dbname, template, owner))
+    sudo('psql -c "CREATE DATABASE %s%s ENCODING \'unicode\' OWNER %s" -d postgres -U %s' % (dbname, template, owner, env.postgres_user or 'postgres'))
 
-def _add_dbuser(user, passwd):
-    sudo('psql -c "CREATE USER %s WITH NOCREATEDB NOCREATEUSER PASSWORD \'%s\'" -d postgres -U postgres' % (user, passwd))
+def add_dbuser(user, passwd):
+    """ Add database user: add_dbuser:user,password """
+    sudo('psql -c "CREATE USER %s WITH NOCREATEDB NOCREATEUSER PASSWORD \'%s\'" -d postgres -U %s' % (user, passwd, env.postgres_user or 'postgres'))
     
 def configure_db():
-    _config()
-    _add_dbuser(env.db_user, env.db_password)
-    _add_db(env.db_name, env.db_user, 'template_postgis')
+    """ Set up webapps database """
+    add_dbuser(env.db_user, env.db_password)
+    add_db(env.db_name, env.db_user, 'template_postgis')
     add_srs()
-
-       
+    
 def syncdb():
-    _config()
-    run(_manage("syncdb --noinput"))
+    """ Run syncdb """
+    run(manage("syncdb --noinput"))
 
 def migrate():
-    _config()
-    run(_manage("migrate"))
+    """ Run migrate """
+    run(manage("migrate"))
     
 def add_srs():
-    _config()                            
-    run(_python("from django.contrib.gis.utils import add_srs_entry;add_srs_entry(900913)"))
+    """ Add google srs """
+    run(python("from django.contrib.gis.utils import add_srs_entry;add_srs_entry(900913)"))
     
 def add_site():
-    _config()                            
-    run(_python("from django.contrib.sites.models import Site;Site.objects.create(domain='example.com', name='example')"))
+    """ Add example django site """
+    run(python("from django.contrib.sites.models import Site;Site.objects.create(domain='example.com', name='example')"))
     
 def add_superuser():
-    _config()                            
-    run(_python("from django.contrib.auth.models import User;User.objects.create_superuser('carpool', 'testuser@test.com', 'carpool')"))
+    """ Add django superuser """
+    run(python("from django.contrib.auth.models import User;User.objects.create_superuser('carpool', 'testuser@test.com', 'carpool')"))
