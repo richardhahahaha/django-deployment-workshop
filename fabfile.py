@@ -47,37 +47,39 @@ def python(cmd):
     cmdstr = "DJANGO_SETTINGS_MODULE=settings /home/%(user)s/%(project_name)s/bin/python -c \"import sys;sys.path.append('/home/%(user)s/%(project_name)s/django-carpool/');sys.path.append('/home/%(user)s/%(project_name)s/django-carpool/carpool/');%%s\"" % env
     return cmdstr % cmd
     
-def deploy():
+def deploy(first=False):
     """Full deploy: push, pip and reload."""
     push()
     update_dependencies()
     run(manage("collectstatic --noinput"))
-    reload()
+    reload(first=first)
     
 def push():
     """ Push out new code to the server """
-    #with cd("%(root)s/django-carpool" % env):
-    #    sudo("git pull")
-    # project.rsync_project("/home/%(user)s/%(project_name)s/django-carpool/" % env, "apps/django-carpool/", extra_opts="--password-file=rsync_pw")
-    project.upload_project()
-    run("rm -rf /home/%(user)s/%(project_name)s/django-carpool" % env)
-    run("cp -rf apps/django-carpool /home/%(user)s/%(project_name)s/django-carpool" % env)
+    with settings(warn_only=True):
+        with cd("/tmp/"):
+            project.upload_project()
+            run("rm -rf /home/%(user)s/%(project_name)s/django-carpool" % env)
+            run("cp -rf apps/django-carpool /home/%(user)s/%(project_name)s/django-carpool" % env)
     _put_template("config/local_settings.py",
-        "%(root)s/django-carpool/carpool/local_settings.py" % env, env,
-        use_sudo=True)
-    _put_template("config/app.wsgi", "%(wsgipath)s" % env, env, use_sudo=True)
+        "%(root)s/django-carpool/carpool/local_settings.py" % env, env)
+    if not hasattr(env, 'use_nginx'):
+        _put_template("config/app.wsgi", "%(wsgipath)s" % env, env, use_sudo=True)
         
 def update_dependencies():    
     """ Update requirements remotely """
     put("config/requirements.txt", "%(root)s/requirements.txt" % env)
     run("%(root)s/bin/pip install -r %(root)s/requirements.txt" % env)
         
-def reload():
+def reload(first=False):
     """ Reload webserver/webapp """
     if hasattr(env, 'use_nginx'):
-       sudo("kill -QUIT `cat /usr/local/nginx/logs/nginx.pid`")
-       sudo("/usr/local/nginx/sbin/nginx")
-       run("bash /home/%(user)s/%(project_name)s/bin/django_gunicorn restart" % env)
+        if first==True:
+            run("bash /home/%(user)s/%(project_name)s/bin/django_gunicorn start" % env)
+        else:
+            sudo("kill -QUIT `cat %(nginx_pidfile)s`" % env)
+            run("bash /home/%(user)s/%(project_name)s/bin/django_gunicorn restart" % env)
+        sudo("%(nginx_bin)s" % env)
     else:
         "Reload Apache to pick up new code changes."
         sudo("invoke-rc.d apache2 reload")
@@ -86,24 +88,24 @@ def reload():
 # a server the simplistic way.
 
 def setup_all():
-    """ Setup all parts on one single server adds a fully running setup if run with -w and using apache """
+    """ Setup all parts on one single server adds a fully running setup if run with -w """
     setup_webserver()
     setup_webapp()
     update_dependencies()
-    deploy()
+    push()
     setup_dbserver()
     configure_db()
-    deploy()
+    deploy(first=True)
     syncdb()
     add_site()
     add_superuser()
-    
+
 def setup_dbserver():
     """ Setup database server with postgis_template db """
     sudo("aptitude update")
-    sudo("aptitude -y install git-core  "
+    sudo("aptitude -y install git-core "
                               "build-essential "
-                              "libpq-dev subversion mercurial apache2 "
+                              "libpq-dev subversion mercurial "
                               "binutils proj gdal-bin libgeos-dev "
                               "postgresql-8.4-postgis postgresql-server-dev-8.4")
     put("postgresql/pg_hba.conf",
@@ -126,34 +128,35 @@ def setup_webserver():
     git repos, etc. will do if those things already exist. However, it's
     a useful example of a more complex Fabric operation.
     """
+    if hasattr(env, 'use_nginx'):
+        server_req = "nginx"
+    else:
+        server_req = "apache2 libapache2-mod-wsgi"
     # Initial setup and package install.
     sudo("aptitude update")
     sudo("aptitude -y install git-core python-dev python-setuptools "
                               "postgresql-dev postgresql-client build-essential "
-                              "libpq-dev subversion mercurial apache2 "
-                              "binutils proj gdal-bin "
-                              "libapache2-mod-wsgi")
+                              "libpq-dev subversion mercurial "
+                              "binutils proj gdal-bin %s "
+                              "python-pip" % server_req)
     if hasattr(env, 'use_nginx'):
-        pass
-        # disabled for safety atm
-        # _put_template("ngnix/ngnix_webserver.conf", "/usr/local/nginx/conf/nginx.conf", env, use_sudo=True)
-        # sudo("mkdir -p /usr/local/nginx/conf/sites-enabled" % env)
+        _put_template("nginx/nginx_webserver.conf", "%(nginx_confdir)snginx.conf" % env, env, use_sudo=True)
+        sudo("mkdir -p %(nginx_confdir)ssites-enabled" % env)
     else:
         with cd("/etc/apache2"):
             sudo("rm -rf apache2.conf conf.d/ httpd.conf magic mods-* sites-* ports.conf")
         _put_template("apache/apache2.conf", "/etc/apache2/apache2.conf", env, use_sudo=True)
         sudo("mkdir -m777 -p /var/www/.python-eggs")
         sudo("mkdir -p /etc/apache2/sites-enabled" % env)
-        sudo("easy_install virtualenv")
  
 def setup_webapp():
     """ Setup virtualenv/startup scripts/configs for webapp """
+    sudo("pip install -U virtualenv")
     run("virtualenv /home/%(user)s/%(project_name)s --distribute" % env)
-    run("/home/%(user)s/%(project_name)s/bin/pip install -U pip" % env)
     run("mkdir -p /home/%(user)s/%(project_name)s" % env)
     run("mkdir -p /home/%(user)s/static" % env)
     if hasattr(env, 'use_nginx'):
-        _put_template("nginx/nginx_webapp.conf", "/usr/local/nginx/conf/sites-enabled/%(project_name)s.conf" % env, env, use_sudo=True)
+        _put_template("nginx/nginx_webapp.conf", "%(nginx_confdir)ssites-enabled/%(project_name)s.conf" % env, env, use_sudo=True)
         _put_template("config/django_gunicorn", "/home/%(user)s/%(project_name)s/bin/django_gunicorn" % env, env)
         run("chmod gu+rx /home/%(user)s/%(project_name)s/bin/django_gunicorn" % env)
     else:

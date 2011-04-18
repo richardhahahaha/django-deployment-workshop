@@ -11,11 +11,10 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 
 PYTHONPATH="%(extra_paths)s"
 
-GUNICORN_PIDFILE="$PROJECT_DIR/$NAME.pid"
+GUNICORN_PIDFILE="$HOME/$NAME.pid"
 GUNICORN_DAEMON="$VIRTUALENV/bin/python $VIRTUALENV/bin/gunicorn_django"
 
 GUNICORN_OPTS="-b $GUNICORN_HOST:$GUNICORN_PORT --log-file $PROJECT_DIR/$NAME.log -D --pid=$GUNICORN_PIDFILE --preload"
-
 fail () {
     echo "failed!"
     exit 1
@@ -29,6 +28,7 @@ case "$1" in
   start)
       echo -n "Starting $NAME: "
       if cd $PROJECT_DIR && $GUNICORN_DAEMON $GUNICORN_OPTS; then
+        sleep 3
         success
       else
         fail
@@ -44,6 +44,7 @@ case "$1" in
     ;;
   restart)
       $0 stop
+      sleep 3
       $0 start
     ;;
   *)

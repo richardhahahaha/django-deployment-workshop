@@ -20,6 +20,7 @@ MANAGERS = (
 )
 
 ADMIN_MEDIA_PREFIX = '%%sadmin/' %% STATIC_URL
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis', # Add 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
