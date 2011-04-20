@@ -372,14 +372,14 @@ Index: django/contrib/gis/maps/google/overlays.py
 +        self.anchor = anchor
  
 +    def _to_param(self):
-+        args = "(%s" % self.url
++        args = "'%s'" % self.url
 +        if self.size:
-+            args += ", new google.maps.Size(%s)" % self.size
++            args += ", new google.maps.Size(%i, %i)" % self.size
 +            if self.origin:
-+                args += ", new google.maps.Point(%s)" % self.origin 
++                args += ", new google.maps.Point(%i, %i)" % self.origin 
 +                if self.anchor:
-+                    args += ", new google.maps.Point(%s)" % self.anchor
-+        args += ")"
++                    args += ", new google.maps.Point(%i, %i)" % self.anchor
++        args += ""
 +        return "new google.maps.MarkerImage(%s)" % args
 +
  class GMarker(GOverlayBase):
