@@ -1,39 +1,28 @@
 from django import forms
 from django.db import models
 from django.utils.safestring import mark_safe
-from django.contrib.gis.geos import Point
+from django.contrib.gis.geos import *
 from django.contrib.gis.db import models
+from django.contrib.gis.forms.fields import GeometryField
+from django.conf import settings
 
 DEFAULT_WIDTH = 400
 DEFAULT_HEIGHT = 300
 
-DEFAULT_LAT = 55.16
-DEFAULT_LNG = 33.16
+DEFAULT_EWKT = u'SRID=4326;POINT(10.7522 59.9136)'
 
 import re
-POINT_RE = re.compile("POINT\s?\((?P<lng>\-?\d+\.\d+)\s(?P<lat>\-?\d+\.\d+)\)")
+POINT_RE = re.compile("SRID=\d+;POINT\s?\((?P<lng>\-?\d+\.\d+)\s(?P<lat>\-?\d+\.\d+)\)")
 
 def point_to_latlng(value):
     if isinstance(value, unicode):
         m = POINT_RE.search(value)
         if m:
             a, b = m.group('lat'), m.group('lng')
-        else:
-            a, b = value.split(',')
         return float(a), float(b)
-    return value
-    
-class LocationFormField(forms.CharField):
-    
-    def clean(self, value):
-        lat, lng = point_to_latlng(value)
-        assert
-        p = Point(lng, lat, srid='wgs84')
-        p.transform(900913)
-        assert False, p.wkt
-        return p
                     
-class LocationWidget(forms.TextInput):
+class LocationWidget(forms.Textarea):
+   
     def __init__(self, *args, **kw):
 
         self.map_width = kw.get("map_width", DEFAULT_WIDTH)
@@ -43,35 +32,61 @@ class LocationWidget(forms.TextInput):
         self.inner_widget = forms.widgets.HiddenInput()
 
     def render(self, name, value, *args, **kwargs):
+
         if value is None:
-            lat, lng = DEFAULT_LAT, DEFAULT_LNG
+            locator = 'true'
+            lat, lng = point_to_latlng(DEFAULT_EWKT)
+            ewkt = DEFAULT_EWKT
         else:
+            locator = 'false'
             if isinstance(value, unicode):
                 lat, lng = point_to_latlng(value)
+                ewkt = value
             else:
-                value.transform('wgs84')
-                lat, lng = point_to_latlng(unicode(value.wkt))
+                lat, lng = point_to_latlng(unicode(value.ewkt))
+                ewkt = value.ewkt
         js = '''
 <script type="text/javascript">
 //<![CDATA[
+
+
     var map_%(name)s;
     var click_%(name)s;
+    var map_locator_%(name)s = %(locator)s
     
+    function savePosition_pan%(name)s(point)
+    {
+        savePosition_%(name)s(point)
+        map_%(name)s.panTo(point);
+    }
     function savePosition_%(name)s(point)
     {
         var input = document.getElementById("id_%(name)s");
-        input.value = point.lat().toFixed(6) + "," + point.lng().toFixed(6);
-        map_%(name)s.panTo(point);
+        input.value = "SRID=4326;POINT(" + point.lng().toFixed(4) + " " + point.lat().toFixed(4) + ")";
     }
-    
+        
     function load_%(name)s() {
-        var point = new google.maps.LatLng(%(lat)f, %(lng)f);
+        
+        var callback = function(currentLocation, supportedLocation, errorLocation, firstCallback) {
+            if (supportedLocation && !errorLocation) {
+                map_%(name)s.setCenter(currentLocation)
+            }
+            if (errorLocation==true && firstCallback==true ) {
+                alert("Cannot find location.")
+            }
+            if (supportedLocation==false  && firstCallback==true) {
+                alert("Finding location not supported.")
+            }
+        }
+        if (map_locator_%(name)s) {
+            getCurrentLocation(callback)
+        }
 
         var options = {
             zoom: 13,
-            center: point,
+            center: new google.maps.LatLng(%(lat)f, %(lng)f),
             mapTypeId: google.maps.MapTypeId.ROADMAP
-            // mapTypeControl: true,
+            // mapTypeControl: true,  
             // navigationControl: true
         };
         
@@ -89,7 +104,7 @@ class LocationWidget(forms.TextInput):
 
         function singleClick(mouseEvent) {
             marker.setPosition(mouseEvent.latLng);
-            savePosition_%(name)s(mouseEvent.latLng);
+            savePosition_pan%(name)s(mouseEvent.latLng);
         }
         
         google.maps.event.addListener(map_%(name)s, 'click', function(mouseEvent){
@@ -118,22 +133,109 @@ class LocationWidget(forms.TextInput):
 
 //]]>
 </script>
-        ''' % dict(name=name, lat=lat, lng=lng)
-        html = self.inner_widget.render("%s" % name, "%f,%f" % (lat, lng), dict(id='id_%s' % name))
+        ''' % dict(name=name, lat=lat, lng=lng, locator=locator)
+        html = self.inner_widget.render("%s" % name, ewkt, dict(id='id_%s' % name))
         html += '<div id="map_%s" style="width: %dpx; height: %dpx"></div>' % (name, self.map_width, self.map_height)
 
         return mark_safe(js + html)
 
     class Media:
         js = (
-            'http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js',
             'http://maps.google.com/maps/api/js?sensor=false',
+            'http://code.google.com/apis/gears/gears_init.js',
+            'http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js',
+            '%scarpool/getcurrentlocation.js' % settings.STATIC_URL
         )
 
-class LocationField(models.PointField):
-    def formfield(self, **kwargs):
-        defaults = {'form_class': LocationFormField}
-        defaults.update(kwargs)
-        defaults['widget'] = LocationWidget
-        return super(LocationField, self).formfield(**defaults)
+class LocationFormField(GeometryField):
+    widget = LocationWidget
+    
+
+class DateSelectWidget(forms.DateInput):
+
+    class Media:
+        js = (
+            'http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js',
+            'https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.11/jquery-ui.min.js'
+        )
+        css = {'screen': ('http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.10/themes/south-street/jquery-ui.css',)}
+
+    def render(self, name, value, *args, **kwargs):
+        html = super(DateSelectWidget, self).render(name, value, *args, **kwargs)
+        html += '''
+<script type="text/javascript">
+//<![CDATA[
+
+    $(document).ready(function(){
+        $("#id_%(name)s").datepicker({
+            dateFormat: 'yy-mm-dd'
+        });
+    });
+
+//]]>
+</script>''' % dict(name=name)
+        return mark_safe(html)    
+
+class DateTimeSelectWidget(forms.DateTimeInput):
+
+    class Media:
+        js = (
+            'http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js',
+            'https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.11/jquery-ui.min.js',
+            '%scarpool/jquery-ui-timepicker-addon.js' % settings.STATIC_URL
+        )
+        css = {
+            'screen': (
+                'http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.10/themes/south-street/jquery-ui.css',
+                '%scarpool/jquery-ui-timepicker-addon.css' % settings.STATIC_URL
+            )
+        }
+
+    def render(self, name, value, *args, **kwargs):
+        html = super(DateTimeSelectWidget, self).render(name, value, *args, **kwargs)
+        html += '''
+<script type="text/javascript">
+//<![CDATA[
+
+    $(document).ready(function(){
+        $("#id_%(name)s").datetimepicker({
+            timeFormat: 'h:mm:ss',
+            dateFormat: 'yy-mm-dd'
+        });
+    });
+
+//]]>
+</script>''' % dict(name=name)
+        return mark_safe(html)
         
+class TimeSelectWidget(forms.TimeInput):
+
+    class Media:
+        js = (
+            'http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js',
+            'https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.11/jquery-ui.min.js',
+            '%scarpool/jquery-ui-timepicker-addon.js' % settings.STATIC_URL
+        )
+        css = {
+            'screen': (
+                'http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.10/themes/south-street/jquery-ui.css',
+                '%scarpool/jquery-ui-timepicker-addon.css' % settings.STATIC_URL
+            )
+        }
+        
+    def render(self, name, value, *args, **kwargs):
+        html = super(TimeSelectWidget, self).render(name, value, *args, **kwargs)
+        html += '''
+<script type="text/javascript">
+//<![CDATA[
+
+    $(document).ready(function(){
+        $("#id_%(name)s").timepicker({
+            timeFormat: 'h:mm:ss'
+        });
+    });
+
+//]]>
+</script>''' % dict(name=name)
+        return mark_safe(html)    
+    

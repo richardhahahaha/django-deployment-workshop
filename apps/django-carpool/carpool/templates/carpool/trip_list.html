@@ -1,0 +1,15 @@
+{% extends "carpool/carpool_base.html" %}
+
+{% block extrahead %}
+{% endblock extrahead %}
+
+{% block onload %}{{ map.onload }}{% endblock onload %}
+
+{% block heading %}
+Alle registrerte turer
+{% endblock heading %}
+
+{% block content %}
+{{ map.scripts }}
+<div id="map" style="width: 400px; height: 300px;"></div>
+{% endblock content %}

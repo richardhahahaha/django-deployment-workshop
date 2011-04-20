@@ -87,6 +87,11 @@ def reload(first=False):
 # OK, simple stuff done. Here's a more complex example: provisioning
 # a server the simplistic way.
 
+def patch_django():
+    put("googlemapsv3.diff", "%(root)s/googlemapsv3.diff" % env)
+    run("cd %(root)s/src/django && patch -p1 < %(root)s/geodjango.diff" % env)
+
+
 def setup_all():
     """ Setup all parts on one single server adds a fully running setup if run with -w """
     setup_webserver()

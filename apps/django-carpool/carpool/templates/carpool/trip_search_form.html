@@ -5,7 +5,7 @@
 {% endblock extrahead %}
 
 {% block heading %}
-Legg til tur
+Søk etter tur
 {% endblock heading %}
 
 {% block content %}
@@ -18,7 +18,7 @@ Legg til tur
 
     {% endfor %}
     <dt class="cleared centered">Alle felter med (*) er påkrevd  </dd></dt>
-    <dd class="cleared centered{% if form.non_field_errors %} errors{% endif %}">{{ form.non_field_errors }}<input type="submit" value="Send"> <input type="reset"></dd>
+    <dd class="cleared centered{% if form.non_field_errors %} errors{% endif %}">{{ form.non_field_errors }}<input type="submit" value="Søk"> <input type="reset"></dd>
 </dl>
 </dl>
 

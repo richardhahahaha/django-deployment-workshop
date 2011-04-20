@@ -2,6 +2,6 @@ psycopg2
 Paste
 PIL
 python-dateutil==1.4.1
-django==1.3
+-e svn+http://code.djangoproject.com/svn/django/trunk/#egg=Django
 easy-thumbnails
 gunicorn
