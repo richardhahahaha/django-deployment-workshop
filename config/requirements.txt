@@ -5,3 +5,4 @@ python-dateutil==1.4.1
 -e svn+http://code.djangoproject.com/svn/django/trunk/#egg=Django
 easy-thumbnails
 gunicorn
+django-uni-form

@@ -13,7 +13,7 @@ import time
 
 # This is a bit more complicated than needed because I'm using Vagrant
 # for the examples.
-env.key_filename = '/usr/lib/ruby/gems/1.8/gems/vagrant-0.7.2/keys/vagrant.ppk'
+env.key_filename = '/usr/lib/ruby/gems/1.8/gems/vagrant-0.7.3/keys/vagrant.ppk'
 
 from fab_utils import _put_template
 # import settings
@@ -53,19 +53,28 @@ def deploy(first=False):
     update_dependencies()
     run(manage("collectstatic --noinput"))
     reload(first=first)
-    
-def push():
+
+def push_project():
     """ Push out new code to the server """
     with settings(warn_only=True):
         with cd("/tmp/"):
             project.upload_project()
             run("rm -rf /home/%(user)s/%(project_name)s/django-carpool" % env)
             run("cp -rf apps/django-carpool /home/%(user)s/%(project_name)s/django-carpool" % env)
+            
+def push_django_settings():
     _put_template("config/local_settings.py",
         "%(root)s/django-carpool/carpool/local_settings.py" % env, env)
+               
+def push_wsgi():
+    _put_template("config/app.wsgi", "%(wsgipath)s" % env, env, use_sudo=True)
+
+def push():
+    push_project()
+    push_django_settings()
     if not hasattr(env, 'use_nginx'):
-        _put_template("config/app.wsgi", "%(wsgipath)s" % env, env, use_sudo=True)
-        
+        push_wsgi()
+
 def update_dependencies():    
     """ Update requirements remotely """
     put("config/requirements.txt", "%(root)s/requirements.txt" % env)
@@ -89,7 +98,7 @@ def reload(first=False):
 
 def patch_django():
     put("googlemapsv3.diff", "%(root)s/googlemapsv3.diff" % env)
-    run("cd %(root)s/src/django && patch -p1 < %(root)s/geodjango.diff" % env)
+    run("cd %(root)s/src/django && patch -p0 < %(root)s/googlemapsv3.diff" % env)
 
 
 def setup_all():

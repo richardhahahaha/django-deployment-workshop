@@ -1,6 +1,7 @@
 from django import forms
 from carpool.models import Trip
-from carpool.fields import LocationFormField, DateTimeSelectWidget, DateSelectWidget, TimeSelectWidget
+from carpool.fields.geometry import LocationFormField
+from carpool.fields.datetime import DateTimeSelectWidget, DateSelectWidget, TimeSelectWidget
 
 class TripForm(forms.ModelForm):
     
