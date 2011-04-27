@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 from django.contrib.gis.db import models
+from django.utils.translation import ugettext_lazy as _
 
 class Trip(models.Model):
-    email = models.EmailField(verbose_name="Epost")
-    from_point = models.PointField(verbose_name="Fra", srid=4326)
-    to_point = models.PointField(verbose_name="Til", srid=4326)
-    when = models.DateTimeField(verbose_name="Når")
+    email = models.EmailField(verbose_name=_('Email'))
+    travel_path = models.LineStringField(verbose_name=_('Route'), srid=4326)
+    when = models.DateTimeField(verbose_name=_('When'))
     
     objects = models.GeoManager()

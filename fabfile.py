@@ -54,6 +54,11 @@ def deploy(first=False):
     run(manage("collectstatic --noinput"))
     reload(first=first)
 
+def deploy_carpool():
+    push()
+    run(manage("collectstatic --noinput"))
+    reload()
+
 def push_project():
     """ Push out new code to the server """
     with settings(warn_only=True):
@@ -113,7 +118,16 @@ def setup_all():
     syncdb()
     add_site()
     add_superuser()
+    
+def setup_allt():
 
+    setup_dbserver()
+    configure_db()
+    deploy(first=True)
+    syncdb()
+    add_site()
+    add_superuser()
+    
 def setup_dbserver():
     """ Setup database server with postgis_template db """
     sudo("aptitude update")

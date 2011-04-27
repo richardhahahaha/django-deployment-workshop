@@ -9,8 +9,9 @@ Legg til tur
 {% endblock heading %}
 
 {% block content %}
-<form method="POST" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data" class="uniForm">
 {% csrf_token %}
+{% comment %}
 <dl>
     {% for field in form %}
     <dt class="cleared{% if field.errors %} errors{% endif %}">{{ field.label_tag }}{% if field.field.required %}*{% endif %}</dt>
@@ -22,5 +23,14 @@ Legg til tur
 </dl>
 </dl>
 
+{% endcomment %}
+
+{% load uni_form_tags %}
+{% with form.helper as helper %}
+    {% uni_form form helper %}
+{% endwith %}
+
 </form>
+
+
 {% endblock content %}

@@ -138,14 +138,14 @@ class LocationWidget(forms.Textarea):
 		search_element.index = 1;
   		map_%(name)s.controls[google.maps.ControlPosition.BOTTOM_LEFT].push(search_element);
   		
-		var search_button = $(search_element).button({text: "Search"})
+		var search_button = $(search_element).button()
 		  		
   		var search_button_cb = function(item) {
   			map_%(name)s.panTo(item.location);
   		}
   		
   		search_button.click(function() {
-  			gdgfields.utils.LocationSearch.popUp(search_button_cb)
+  			new gdgfields.utils.LocationSearchPopup('%(name)s_popup', [])
   		})
   		
     }
@@ -158,8 +158,8 @@ class LocationWidget(forms.Textarea):
 </script>
         ''' % dict(name=name, lat=lat, lng=lng, get_current_location=get_current_location)
         html = self.inner_widget.render("%s" % name, ewkt, dict(id='id_%s' % name))
-        html += '<input type="text" id="complete_%s"><div id="map_%s" style="width: %dpx; height: %dpx"></div>' % (
-            name, name, self.map_width, self.map_height)
+        html += '<div id="map_%s" style="width: %dpx; height: %dpx"></div>' % (
+             name, self.map_width, self.map_height)
 
         return mark_safe(js + html)
 
@@ -282,57 +282,22 @@ class DirectionsWidget(forms.Textarea):
         google.maps.event.addListener(map_%(name)s, 'dblclick', function(mouseEvent){
             click_%(name)s = 2
         });
-        var geocoder_%(name)s = new google.maps.Geocoder()
         
-        $( "#complete_%(name)s" ).autocomplete({
-            source:	function( request, response ) {
-                    geocoder_%(name)s.geocode( {'address': request.term}, function(results, status) {
-                    
-                            response($.map(results, function(item) {
-                                
-                                    // split returned string
-                                    var place_parts = item.formatted_address.split(",");
-                                    var place = place_parts[0];
-                                    var place_details = "";
-                                    
-                                    // parse city, state, and zip
-                                    for(i=1;i<place_parts.length;i++){
-                                        place_details += place_parts[i];
-                                        if(i !== place_parts.length-1) place_details += ",";
-                                    }
-                                    var item_count = 0
-                                    // return top 8 results
-                                    if (item_count < 8) {
-                                        item_count++;
-                                        return {
-                                            label: place,
-                                            value: item.formatted_address,
-                                            desc: place_details,
-                                            location: item.geometry.location
-                                        }
-                                    }
-                                } // fn end
-                            ) // map end
-                        ) // response end
-                    } // fn end
-                ) // geocoder end
-                
-            },
-            minLength: 2,
-            select: function( event, ui ) {
-                savePosition_%(name)s(ui.item.location)
-                map_%(name)s.panTo(ui.item.location);
-                marker.setPosition(ui.item.location);	
-            },
-            open: function() {
-                $( this ).removeClass( "ui-corner-all" ).addClass( "ui-corner-top" );
-            },
-            close: function() {
-                $( this ).removeClass( "ui-corner-top" ).addClass( "ui-corner-all" );
-            }
-        });
-
-
+		var search_element = document.createElement('button')
+		search_element.appendChild(document.createTextNode('Search'))
+		search_element.type = 'button'
+		search_element.index = 1;
+  		map_%(name)s.controls[google.maps.ControlPosition.BOTTOM_LEFT].push(search_element);
+  		
+		var search_button = $(search_element).button()
+		  		
+  		var search_button_cb = function(item) {
+  			map_%(name)s.panTo(item.location);
+  		}
+  		
+  		search_button.click(function() {
+  			new gdgfields.utils.LocationSearchPopup('%(name)s_popup', [])
+  		})
     }
     
     $(document).ready(function(){
@@ -343,8 +308,8 @@ class DirectionsWidget(forms.Textarea):
 </script>
         ''' % dict(name=name, lat=lat, lng=lng, get_current_location=get_current_location)
         html = self.inner_widget.render("%s" % name, ewkt, dict(id='id_%s' % name))
-        html += '<input type="text" id="complete_%s"><div id="map_%s" style="width: %dpx; height: %dpx"></div>' % (
-            name, name, self.map_width, self.map_height)
+        html += '<div id="map_%s" style="width: %dpx; height: %dpx"></div>' % (
+            name, self.map_width, self.map_height)
 
         return mark_safe(js + html)
 
@@ -355,7 +320,8 @@ class DirectionsWidget(forms.Textarea):
             JQUERY_JS,
             JQUERY_UI_JS,
             CLASSY_JS,
-            '%scarpool/getcurrentlocation.js' % settings.STATIC_URL
+            '%scarpool/getcurrentlocation.js' % settings.STATIC_URL,
+            '%scarpool/getlocationfromadress.js' % settings.STATIC_URL
         )
 
 class DirectionsFormField(GeometryField):

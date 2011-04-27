@@ -109,6 +109,7 @@ TEMPLATE_DIRS = (
 )
 
 INSTALLED_APPS = (
+    'carpool',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -117,7 +118,7 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'django.contrib.admin',
     'django.contrib.gis',
-    'carpool'
+    'uni_form'
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
 )

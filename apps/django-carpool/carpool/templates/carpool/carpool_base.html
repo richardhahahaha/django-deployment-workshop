@@ -4,7 +4,7 @@
     <head>
         <title>vanero Webdesign</title>
         <meta http-equiv="content-type" content="text/html;charset=utf-8" />
-        <link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}vanero/basic.css" />
+        <link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}carpool/basic.css" />
 
         {% block extrahead %}
         {% endblock extrahead %}
@@ -13,39 +13,20 @@
 
     <body {% block onload %}{% endblock onload %}>
 
-        <div id="first_container">
-            <div id="second_container">
-                <div id="third_container">
-                
-
-                
-                    <ul id="menu">
-                        <li><a href="/">Hjem</a></span></li>
-                        <li><a href="/list/">Vis alle turer</a></span></li>
-                        <li><a href="/search/">Søk etter tur</a></span></li>
-                        <li><a href="/create/">Registrer tur</a></span></li>
-                    </ul>
-                    
-                    <div class="title"></div>
-
-                    <div class="border">
-                        <div class="content">
-                                <h1>{% block heading %}{% endblock heading %}</h1>
-                                <div class="text">
-                                    {% block content %}
-                                    {% endblock content %}
-                                </div>
-                                
-                        </div>
-                    </div>
-
-                    
-                    <div class="designinfo">
-                        valid XHTML | valid CSS | Design by Vanero
-                    </div>
-                    
-                </div>
-            </div>
+        <div id="bodywrapper">
+            
+            <ul id="menu">
+                <li><a href="/">Hjem</a></span></li>
+                <li><a href="/list/">Vis alle turer</a></span></li>
+                <li><a href="/search/">Søk etter tur</a></span></li>
+                <li><a href="/create/">Registrer tur</a></span></li>
+            </ul>
+            
+            <h1>{% block heading %}{% endblock heading %}</h1>
+            
+            {% block content %}
+            {% endblock content %}
+            
         </div>
                 
     </body>

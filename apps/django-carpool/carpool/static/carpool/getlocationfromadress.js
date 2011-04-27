@@ -1,36 +1,22 @@
 var gdgfields = window.gdgfields || {}
 gdgfields.utils = gdgfields.utils || {}
 
-gdgfields.utils.LocationSearchClass = Class.$extend({
-	
-	__init__ : function() {
-		this.geoCoder = new google.maps.Geocoder()
-		this.dialog = null
-	},
-	
-	getDialog : function() {
-		if (!this.dialog) {
-			this.dialog = $('<div id="autocomplete_address_dialog"></div>')
-				.appendTo(document.body)
-				.dialog({
-					autoOpen: false,
-					show: "blind",
-					hide: "explode"
-				}	
-			)
-			$( '<input type="text" id="autocomplete_address_input"/>' )
-				.appendTo(this.dialog.dialog("widget"))
-				.autocomplete({
-		            source: $.proxy(this.autocompleteSource, this),
-		            minLength: 2,
-		            select: $.proxy(this.selectPosition, this)
-	        })
-	    }
-	    return this.dialog
+gdgfields.utils.GeoCoder = new google.maps.Geocoder()
+
+gdgfields.utils.LocationSearch = Class.$extend({
+
+	__init__ : function(id, callback) {
+        this.callback = callback
+		$( '#'+ id ).autocomplete({
+	            source: $.proxy(this.autocompleteSource, this),
+	            minLength: 2,
+	            select: $.proxy(this.selectPosition, this)
+        })
+
 	},
 	
 	autocompleteSource : function( request, response ) {
-		this.geoCoder.geocode( {'address': request.term}, function(results, status) {
+		gdgfields.utils.GeoCoder.geocode( {'address': request.term}, function(results, status) {
 
 			response($.map(results, function(item) {
 				
@@ -63,15 +49,28 @@ gdgfields.utils.LocationSearchClass = Class.$extend({
 	},
 	selectPosition: function( event, ui ) {
 		this.callback(ui.item)
-		this.getDialog().dialog("close")
+	},
+
+});
+
+gdgfields.utils.LocationSearchPopup = Class.$extend({
+	
+	__init__ : function(id, buttons) {
+        this.dialog = $('<div id="' + id + '"><input type="text" id="' + id + '_search"/></div>')
+		.appendTo(document.body)
+		.dialog({
+			autoOpen: true,
+			show: "blind",
+			hide: "explode"
+		})
+		new gdgfields.utils.LocationSearch(id + '_search', this.searchCallback)
+        this.position = null
 	},
 	
-	popUp : function( callback ) {
-		this.callback = callback
-		this.getDialog().dialog("open")
-	}
+	searchCallback: function( item ) {
+		this.position = item.location
+	},
 	
 });
 
-gdgfields.utils.LocationSearch = new gdgfields.utils.LocationSearchClass()
 
