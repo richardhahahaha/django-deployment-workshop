@@ -9,8 +9,8 @@ JQUERY_UI_JS = getattr(settings, 'JQUERY_UI_JS', 'https://ajax.googleapis.com/aj
 JQUERY_UI_CSS  = getattr(settings, 'JQUERY_UI_CSS', 'http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.10/themes/south-street/jquery-ui.css')
 CLASSY_JS = getattr(settings, 'CLASSY_JS', '%scarpool/classy.js' % settings.STATIC_URL)
 
-DEFAULT_WIDTH = 400
-DEFAULT_HEIGHT = 300
+DEFAULT_WIDTH = 590
+DEFAULT_HEIGHT = 450
 
 DEFAULT_EWKT = u'SRID=4326;POINT(10.7522 59.9136)'
 
@@ -193,7 +193,7 @@ class DirectionsWidget(forms.Textarea):
         self.map_width = kw.get("map_width", DEFAULT_WIDTH)
         self.map_height = kw.get("map_height", DEFAULT_HEIGHT)
 
-        super(LocationWidget, self).__init__(*args, **kw)
+        super(DirectionsWidget, self).__init__(*args, **kw)
         self.inner_widget = forms.widgets.HiddenInput()
 
     def render(self, name, value, *args, **kwargs):
@@ -296,7 +296,7 @@ class DirectionsWidget(forms.Textarea):
   		}
   		
   		search_button.click(function() {
-  			new gdgfields.utils.LocationSearchPopup('%(name)s_popup', [])
+  			new gdgfields.utils.LocationSearchStartEndPopup('%(name)s_popup', map_%(name)s)
   		})
     }
     

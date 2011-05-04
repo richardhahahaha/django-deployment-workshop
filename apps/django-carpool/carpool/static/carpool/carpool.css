@@ -1,0 +1,13 @@
+ul.main-menu { display: block; margin: 0px; background: #ffffff; }
+
+ul.main-menu li { list-style-type: none; float: left;  margin: 0; }
+
+ul.main-menu li ul { margin-left: 1px; position: absolute; width: 150px; visibility: hidden; height: auto; background: #ffffff; opacity: 0.7; alpha: opacity(70); }
+
+ul.main-menu li a { padding:6px; font-family: 'CambriaRegular', Georgia, serif; display:block; text-decoration:none;  font-weight: bold; color: #58595b; }
+ul.main-menu li.selected a {  color: #f15a29; }
+ul.main-menu li a:hover {  text-decoration:none;  color: #f15a29;}
+ul.main-menu li.selected li a { color: #58595b}
+ul.main-menu li li.selected a { color: #f15a29; }
+ul.main-menu li.selected li a:hover { color: #f15a29; }
+ul.main-menu li.selected li.selected a { color: #f15a29; }
