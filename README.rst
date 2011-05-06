@@ -39,7 +39,7 @@ Make a dir to put the Vagrantfile. Eg. C:\\vagrant\\, put the Vagrantfile_ here,
 
     vagrant up
 
-.. _Vagrantfile: http://www.ruby-lang.org/
+.. _Vagrantfile: https://github.com/fivethreeo/django-deployment-workshop/raw/master/vagrant/Vagrantfile
 
 Connect to 127.0.0.1:4422 using putty with the keyfile C:\\Ruby192\\lib\\ruby\\gems\\1.9.1\\gems\\vagrant-0.7.2\\keys\\vagrant.ppk, depending on ruby_ version.
 
