@@ -23,31 +23,23 @@ environment for a Python WSGI stack, including:
 Getting the app running
 =======================
 
-Install putty_, msysgit_, virtualbox_, ruby_ (jruby_ on 64bit oses) and vagrant_.
+Install putty_, virtualbox_, ruby_ (jruby_ on 64bit oses) and vagrant_.
 
 .. _putty: http://www.chiark.greenend.org.uk/~sgtatham/putty/download.html
 .. _virtualbox: http://www.virtualbox.org/
 
 .. _vagrant: http://vagrantup.com/
 
-When installing msysgit_ add the context menu for "Git bash here".
-
-.. _msysgit: http://code.google.com/p/msysgit/
-
 After installing ruby_ or jruby_ and the devkit_ , open a cmd shell and do a (j)gem install vagrant
 
 .. _jruby: http://www.jruby.org/
 .. _devkit: http://rubyinstaller.org/add-ons/devkit/
 
-Make a dir to check out the workshop. Eg. C:\\vagrant\\ right click the dir and "Git bash here".
-
-    git clone https://github.com/fivethreeo/django-deployment-workshop.git
-
-Close the git bash window. Hold shift and right clik the dir and "Open command window here".
-
-    copy django-deployment-workshop\\vagrant\\Vagrantfile .
+Make a dir to put the Vagrantfile. Eg. C:\\vagrant\\, put the Vagrantfile_ here, hold shift and right clik the dir and "Open command window here", run:
 
     vagrant up
+
+.. _Vagrantfile: http://www.ruby-lang.org/
 
 Connect to 127.0.0.1:4422 using putty with the keyfile C:\\Ruby192\\lib\\ruby\\gems\\1.9.1\\gems\\vagrant-0.7.2\\keys\\vagrant.ppk, depending on ruby_ version.
 
@@ -55,11 +47,17 @@ Connect to 127.0.0.1:4422 using putty with the keyfile C:\\Ruby192\\lib\\ruby\\g
 
 In the terminal window (putty) do:
 
-    cd /vagrant/django-deployment-workshop
+    sudo apt-get install git-core
+
+    cd /vagrant/
+
+    git clone https://github.com/fivethreeo/django-deployment-workshop.git
+
+    cd django-deployment-workshop    
 
     sudo bash bootstrap_dev.sh
 
-    fab setup_all -R develop -p vagrant
+    fab -R develop -p vagrant config setup_all 
 
 Open a webbrowser to http://127.0.0.1:4480/admin/, login using user: carpool password: carpool
 
